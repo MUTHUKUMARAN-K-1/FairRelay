@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@theme {
+  --color-eco-dark: #0A0F1C;
+  --color-eco-dark-lighter: #111827;
+  --color-eco-brand-orange: #EA580C;
+  --color-eco-brand-orange-hover: #C2410C;
+  --color-eco-text-primary: #F9FAFB;
+  --color-eco-text-secondary: #9CA3AF;
+  --color-eco-success: #10B981;
+  --color-eco-warning: #F59E0B;
+  --color-eco-error: #EF4444;
+  --color-eco-info: #3B82F6;
+  --color-glass-bg: rgba(255, 255, 255, 0.05);
+  --color-glass-border: rgba(255, 255, 255, 0.1);
+  --color-glass-highlight: rgba(255, 255, 255, 0.15);
+}
+
+@layer base {
+  body {
+    @apply bg-eco-dark text-eco-text-primary overflow-x-hidden;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-glass-bg backdrop-blur-lg border border-glass-border shadow-xl;
+  }
+  
+  .glass-input {
+    @apply bg-white/5 border border-glass-border text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-eco-brand-orange/50 focus:border-eco-brand-orange/50 transition-all duration-150;
+  }
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #1f2937; 
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #4b5563; 
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #374151; 
+}
+
+/* Google Maps Place Autocomplete Styling */
+gmp-place-autocomplete {
+  width: 100%;
+  /* Force transparent background on the web component host so it doesn't look like a black box */
+  background-color: transparent; 
+}
+
+gmp-place-autocomplete::part(input) {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  /* Match the exact glass style of other inputs: bg-white/5 */
+  background-color: rgba(255, 255, 255, 0.05); 
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  color: white;
+  font-family: inherit; /* Ensure font matches */
+  font-size: 0.875rem; /* text-sm to match others */
+  line-height: 1.5;
+  transition: all 150ms ease-in-out;
+  outline: none;
+}
+
+gmp-place-autocomplete::part(input):focus {
+  border-color: rgba(234, 88, 12, 0.5); /* eco-brand-orange/50 */
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.5);
+}
+
+gmp-place-autocomplete::part(input)::placeholder {
+  color: #6b7280; /* gray-500 */
+}
