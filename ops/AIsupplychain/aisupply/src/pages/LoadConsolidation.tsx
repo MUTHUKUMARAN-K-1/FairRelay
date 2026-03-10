@@ -998,7 +998,6 @@ export function LoadConsolidation() {
                   <div className="text-[8px] text-gray-500 flex items-center justify-end pr-1" title={DEMO_SHIPMENTS[i].id}>{DEMO_SHIPMENTS[i].id.slice(-3)}</div>
                   {row.map((val, j) => {
                     const bg = i === j ? "bg-white/20" : val >= 70 ? "bg-emerald-600" : val >= 40 ? "bg-yellow-600" : val >= 15 ? "bg-orange-700" : "bg-red-900";
-                    const opacity = i === j ? "opacity-30" : `opacity-${Math.max(30, Math.min(90, val))}`;
                     return (
                       <div
                         key={j}

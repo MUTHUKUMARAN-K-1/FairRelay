@@ -94,7 +94,7 @@ export function RecentShipments() {
       </div>
 
       {/* Map View */}
-      {selectedPackage && selectedPackage.pickup.lat && selectedPackage.delivery.lat && (
+      {selectedPackage && selectedPackage.pickup.lat != null && selectedPackage.pickup.lng != null && selectedPackage.delivery.lat != null && selectedPackage.delivery.lng != null && (
         <div className="h-64 rounded-lg overflow-hidden border border-white/10 mb-4">
           <MapContainer
             center={[
@@ -109,7 +109,7 @@ export function RecentShipments() {
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             />
-            
+
             {/* Pickup Marker */}
             <Marker position={[selectedPackage.pickup.lat, selectedPackage.pickup.lng]}>
               <Popup>
@@ -119,7 +119,7 @@ export function RecentShipments() {
                 </div>
               </Popup>
             </Marker>
-            
+
             {/* Delivery Marker */}
             <Marker position={[selectedPackage.delivery.lat, selectedPackage.delivery.lng]}>
               <Popup>
@@ -129,7 +129,7 @@ export function RecentShipments() {
                 </div>
               </Popup>
             </Marker>
-            
+
             {/* Route Line */}
             <Polyline
               positions={[

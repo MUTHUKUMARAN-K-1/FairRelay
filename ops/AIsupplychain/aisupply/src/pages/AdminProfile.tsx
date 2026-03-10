@@ -37,7 +37,7 @@ export function AdminProfile() {
     fetchHubs(); // Refresh hub list
   };
 
-  const handleHubRemoved = (hubId: string) => {
+  const handleHubRemoved = (_hubId: string) => {
     showToast('Hub Removed', 'Virtual hub has been removed from the network.', 'info');
     fetchHubs(); // Refresh hub list
   };
@@ -188,7 +188,7 @@ export function AdminProfile() {
                                   </td>
                               </tr>
                           ) : (
-                              hubs.map((hub, idx) => (
+                              hubs.map((hub) => (
                                   <tr key={hub.id} className="hover:bg-[#1A1F2E] transition-colors">
                                       <td className="px-6 py-4 flex items-center text-white font-medium">
                                           <span className="mr-2 text-lg">🤝</span> {hub.name}

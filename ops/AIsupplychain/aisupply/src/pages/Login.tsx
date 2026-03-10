@@ -14,7 +14,6 @@ export function Login() {
   const [phone, setPhone] = useState("+91");
   const [otp, setOtp] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
   const [phoneError, setPhoneError] = useState("");
   const [otpError, setOtpError] = useState("");
   const [otpTimer, setOtpTimer] = useState(0);
@@ -53,7 +52,6 @@ export function Login() {
       const response = await sendOTP(phone, "DISPATCHER");
 
       if (response.success) {
-        setOtpSent(true);
         setOtpTimer(60);
         setStep("otp");
         showToast("Success", "OTP sent to your phone", "success");
@@ -220,7 +218,6 @@ export function Login() {
                       onClick={() => {
                         setStep("phone");
                         setOtp("");
-                        setOtpSent(false);
                       }}
                       className="text-eco-brand-orange text-xs hover:underline mt-2"
                     >
