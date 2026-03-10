@@ -162,8 +162,8 @@ async def health_check():
     }
 
 
-# Mount static files and demo endpoints only in development
-if not settings.is_production and FRONTEND_DIR.exists():
+# Mount static files and demo endpoints
+if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
     NO_CACHE = {"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
