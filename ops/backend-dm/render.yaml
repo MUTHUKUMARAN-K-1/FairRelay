@@ -1,28 +1,52 @@
 services:
+  # Node.js API Gateway (handles auth, proxy to brain, business logic)
   - type: web
-    name: fairrelay-api
+    name: fairrelay-backend
     runtime: node
     plan: free
-    buildCommand: npm install && npx prisma generate && npx prisma db push
-    startCommand: npm start
+    buildCommand: npm install
+    startCommand: node index.js
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 3000
-      - key: DATABASE_URL
-        sync: false
-      - key: DIRECT_URL
-        sync: false
+      - key: BRAIN_URL
+        value: https://fairrelay-brain.onrender.com
       - key: JWT_SECRET
         sync: false
-      - key: TWILIO_ACCOUNT_SID
-        sync: false
-      - key: TWILIO_AUTH_TOKEN
-        sync: false
-      - key: TWILIO_PHONE_NUMBER
+      - key: DATABASE_URL
         sync: false
       - key: CORS_ORIGINS
+        value: "https://fairrelay.vercel.app,https://logisticsnow.in,https://app.lorri.in,http://localhost:5173"
+
+  # FastAPI AI Brain (LangGraph multi-agent system)
+  - type: web
+    name: fairrelay-brain
+    runtime: docker
+    plan: free
+    dockerfilePath: ../brain/Dockerfile
+    dockerContext: ../brain
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: PORT
+        value: 8000
+      - key: DATABASE_URL
+        value: ""
+      - key: CORS_ORIGINS
+        value: "https://fairrelay-backend.onrender.com,https://fairrelay.vercel.app,https://logisticsnow.in,http://localhost:3000"
+      - key: LANGCHAIN_TRACING_V2
+        value: "false"
+      - key: LANGCHAIN_API_KEY
         sync: false
-      - key: BRAIN_URL
+      - key: LANGCHAIN_PROJECT
+        value: fairrelay-prod
+      - key: GOOGLE_API_KEY
         sync: false
+      - key: ENABLE_GEMINI_EXPLAIN
+        value: "true"
+      - key: GEMINI_MODEL
+        value: "gemini-2.5-flash"
