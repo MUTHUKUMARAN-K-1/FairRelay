@@ -14,10 +14,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# Create data directory for SQLite fallback (writable)
+RUN mkdir -p /app/data && chmod 777 /app/data
+
 # Create non-root user
-RUN useradd --create-home appuser
+RUN useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8000
 
-CMD ["gunicorn", "app.main:app", "-c", "gunicorn.conf.py"]
+# Use uvicorn directly for better async support
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
