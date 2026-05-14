@@ -1,12 +1,13 @@
 """
 Database connection and session management.
-Uses async SQLAlchemy with asyncpg driver.
+Uses async SQLAlchemy with asyncpg driver for PostgreSQL,
+or aiosqlite for local/free-tier deployment.
 """
 
 import uuid
+import os
 
 from sqlalchemy import CHAR, text
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.types import TypeDecorator
@@ -18,13 +19,13 @@ class GUID(TypeDecorator):
     """
     Platform-independent GUID type.
     Uses PostgreSQL's UUID type when available, otherwise uses CHAR(32) for SQLite.
-    Stores as stringified hex values in SQLite.
     """
     impl = CHAR
     cache_ok = True
 
     def load_dialect_impl(self, dialect):
         if dialect.name == 'postgresql':
+            from sqlalchemy.dialects.postgresql import UUID as PG_UUID
             return dialect.type_descriptor(PG_UUID(as_uuid=True))
         else:
             return dialect.type_descriptor(CHAR(32))
@@ -52,16 +53,36 @@ class GUID(TypeDecorator):
 
 settings = get_settings()
 
-# Create async engine with production-ready pool settings
-engine = create_async_engine(
-    settings.database_url,
-    echo=settings.debug,
-    future=True,
-    pool_size=20,
-    max_overflow=10,
-    pool_recycle=3600,
-    pool_pre_ping=True,
-)
+# Determine database URL - fallback to SQLite if no PostgreSQL configured
+_db_url = settings.database_url
+
+if not _db_url or _db_url == "":
+    # Use SQLite as fallback (works without external DB)
+    _db_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+    os.makedirs(_db_dir, exist_ok=True)
+    _db_url = f"sqlite+aiosqlite:///{_db_dir}/fairrelay.db"
+    _is_sqlite = True
+else:
+    _is_sqlite = False
+
+# Create async engine with appropriate settings
+if _is_sqlite:
+    engine = create_async_engine(
+        _db_url,
+        echo=settings.debug,
+        future=True,
+        connect_args={"check_same_thread": False},
+    )
+else:
+    engine = create_async_engine(
+        _db_url,
+        echo=settings.debug,
+        future=True,
+        pool_size=20,
+        max_overflow=10,
+        pool_recycle=3600,
+        pool_pre_ping=True,
+    )
 
 # Session factory
 async_session_maker = async_sessionmaker(
@@ -103,6 +124,6 @@ async def check_db_health() -> bool:
 
 
 async def init_db() -> None:
-    """Initialize database tables (for development only)."""
+    """Initialize database tables."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
