@@ -1,6 +1,6 @@
 """
-Gemini 1.5 Flash Explainability Node for LangGraph Integration.
-Generates personalized Tamil/English explanations using LLM.
+Gemini Explainability Node for LangGraph Integration.
+Generates personalized Tamil/English explanations using Gemini 2.5 Flash LLM.
 """
 
 import os
@@ -12,7 +12,7 @@ from app.schemas.allocation_state import AllocationState
 
 async def gemini_explain_node(state: AllocationState) -> Dict[str, Any]:
     """
-    LangGraph Node: Gemini 1.5 Flash personalized explanations.
+    LangGraph Node: Gemini personalized explanations.
     
     Generates natural language explanations in Tamil/English based on
     driver context, recovery status, EV considerations, and fairness metrics.
@@ -35,13 +35,19 @@ async def gemini_explain_node(state: AllocationState) -> Dict[str, Any]:
         # LangChain Google GenAI not installed
         return {}
     
-    # Initialize Gemini 3 Flash Preview
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-3-flash-preview",
-        google_api_key=api_key,
-        temperature=0.2,  # Consistent tone
-        max_tokens=100,   # Keep explanations concise (<50 words)
-    )
+    # Initialize Gemini - use accessible model with fallback
+    gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    
+    try:
+        llm = ChatGoogleGenerativeAI(
+            model=gemini_model,
+            google_api_key=api_key,
+            temperature=0.2,  # Consistent tone
+            max_tokens=100,   # Keep explanations concise (<50 words)
+        )
+    except Exception as e:
+        # Model initialization failed, skip Gemini
+        return {}
     
     # Rich prompt template with Tamil/English support
     prompt_template = PromptTemplate.from_template("""
@@ -68,46 +74,53 @@ Generate the explanation:
     
     final_proposal = state.final_proposal or state.route_proposal_1
     final_fairness = state.final_fairness or state.fairness_check_1
-    metrics = final_fairness["metrics"]
     
-    updated_explanations = state.explanations.copy()
+    # Guard against None state (if workflow failed mid-way)
+    if not final_proposal or not final_fairness:
+        return {}
     
-    for alloc in final_proposal["allocation"]:
+    metrics = final_fairness.get("metrics", {})
+    if not metrics:
+        return {}
+    
+    updated_explanations = state.explanations.copy() if state.explanations else {}
+    
+    for alloc in final_proposal.get("allocation", []):
         driver_id = str(alloc["driver_id"])
         
         # Get existing explanation to enhance
-        existing = state.explanations.get(driver_id, {})
+        existing = state.explanations.get(driver_id, {}) if state.explanations else {}
         
         # Find driver info
         driver = next(
-            (d for d in state.driver_models if str(d.get("id")) == driver_id),
+            (d for d in (state.driver_models or []) if str(d.get("id")) == driver_id),
             {}
         )
         
         # Find route info
         route_id = str(alloc["route_id"])
         route = next(
-            (r for r in state.route_models if str(r.get("id")) == route_id),
+            (r for r in (state.route_models or []) if str(r.get("id")) == route_id),
             {}
         )
         
         # Get driver context
-        driver_context = state.driver_contexts.get(driver_id, {})
+        driver_context = state.driver_contexts.get(driver_id, {}) if state.driver_contexts else {}
         
         # Determine language preference
         preferred_lang = driver.get("preferred_language", "en")
         language = "Tamil" if preferred_lang == "ta" else "English"
         
         # Check EV status
-        is_ev = driver.get("vehicle_type") == "EV" or driver.get("is_ev", False)
+        is_ev = str(driver.get("vehicle_type", "")).upper() in ("EV", "ELECTRIC") or driver.get("is_ev", False)
         
         # Check recovery status
-        recovery_target = state.recovery_targets.get(driver_id)
+        recovery_target = state.recovery_targets.get(driver_id) if state.recovery_targets else None
         is_recovery = recovery_target is not None
         
         # Build context for prompt
-        today_effort = alloc["effort"]
-        team_avg = metrics["avg_effort"]
+        today_effort = alloc.get("effort", 0)
+        team_avg = metrics.get("avg_effort", 60)
         delta_pct = ((today_effort / team_avg) - 1) * 100 if team_avg > 0 else 0
         
         context = {
@@ -130,7 +143,7 @@ Generate the explanation:
             # Fairness note
             "fairness_note": (
                 "✅ Team workload perfectly balanced today!"
-                if metrics["gini_index"] < 0.25
+                if metrics.get("gini_index", 1) < 0.25
                 else "Team fairness optimized."
             ),
             
@@ -153,7 +166,7 @@ Generate the explanation:
             # Update explanation
             updated_explanations[driver_id] = {
                 "driver_explanation": generated_text,
-                "admin_explanation": f"Gemini 1.5 Flash ({language}, {len(generated_text)} chars) - {existing.get('category', 'NEAR_AVG')}",
+                "admin_explanation": f"Gemini ({gemini_model}, {language}, {len(generated_text)} chars) - {existing.get('category', 'NEAR_AVG')}",
                 "category": existing.get("category", "NEAR_AVG"),
                 "gemini_generated": True,
             }
@@ -169,13 +182,14 @@ Generate the explanation:
     # Create decision log entry
     log_entry = {
         "timestamp": datetime.utcnow().isoformat(),
-        "agent_name": "GEMINI_1_5_FLASH",
+        "agent_name": "GEMINI_EXPLAIN",
         "step_type": "PERSONALIZED_EXPLANATIONS",
         "input_snapshot": {
-            "num_drivers": len(final_proposal["allocation"]),
+            "num_drivers": len(final_proposal.get("allocation", [])),
+            "model": gemini_model,
             "languages": list(set(
                 d.get("preferred_language", "en") 
-                for d in state.driver_models
+                for d in (state.driver_models or [])
             )),
         },
         "output_snapshot": {
@@ -192,21 +206,13 @@ Generate the explanation:
     
     return {
         "explanations": updated_explanations,
-        "decision_logs": state.decision_logs + [log_entry],
+        "decision_logs": (state.decision_logs or []) + [log_entry],
     }
 
 
 def template_fallback(effort: float, avg_effort: float, is_recovery: bool) -> str:
     """
     Fallback template-based explanation when Gemini is unavailable.
-    
-    Args:
-        effort: Today's effort score
-        avg_effort: Team average effort
-        is_recovery: Whether driver is in recovery mode
-        
-    Returns:
-        Simple explanation string
     """
     if is_recovery:
         return "Recovery route today - lighter load after a busy week. Take it easy!"
