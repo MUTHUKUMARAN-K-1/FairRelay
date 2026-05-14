@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info(f"Starting {settings.app_title} v{settings.app_version} (env={settings.app_env})")
 
-    # Always initialize the database (creates tables for SQLite fallback)
+    # Always initialize DB (creates tables for SQLite fallback)
     try:
         from app.database import init_db, check_db_health
         await init_db()
@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI):
         else:
             logger.warning("Database init succeeded but health check failed")
     except Exception as e:
-        logger.warning(f"Database initialization failed - running without persistence: {e}")
+        logger.warning(f"Database initialization failed - running degraded: {e}")
 
     yield
     # Shutdown
@@ -69,26 +69,24 @@ app = FastAPI(
     title=settings.app_title,
     version=settings.app_version,
     description="""
-    ## Fair Dispatch System API
+    ## FairRelay — AI-Powered Fair Dispatch System
 
-    A fairness-focused route allocation system for delivery operations.
+    Production API for fairness-focused route allocation in logistics.
+    Integrates with LoRRI TMS (logisticsnow.in) as an AI intelligence layer.
 
-    ### Features
-    - **Route Clustering**: Groups packages using K-Means for efficient routes
-    - **Workload Scoring**: Calculates balanced workload metrics
-    - **Fairness Metrics**: Computes Gini index and fairness scores
-    - **Explainability**: Provides human-readable explanations for allocations
-    - **LangGraph Workflow**: Multi-agent orchestration with LangSmith tracing
+    ### Architecture: 6-Agent LangGraph Pipeline
+    1. **ML Effort Agent** — Computes driver-route effort matrix
+    2. **Route Planner** — OR-Tools optimal assignment
+    3. **Fairness Manager** — Gini index evaluation, may trigger re-optimization
+    4. **Driver Liaison** — Per-driver negotiation (accept/counter)
+    5. **Final Resolution** — Resolves counter-proposals via swaps
+    6. **Explainability** — Human-readable allocation explanations
 
-    ### Main Endpoints
-    - `POST /api/v1/allocate` - Allocate packages to drivers (original)
-    - `POST /api/v1/allocate/langgraph` - Allocate with LangGraph workflow
-    - `POST /api/v1/consolidate` - AI Load Consolidation (5-agent LangGraph pipeline)
-    - `POST /api/v1/consolidate/simulate` - Compare consolidation scenarios
-    - `GET /api/v1/drivers/{id}` - Get driver details and stats
-    - `GET /api/v1/routes/{id}` - Get route details
-    - `POST /api/v1/feedback` - Submit driver feedback
-    - `GET /api/v1/agent-events/stream` - SSE stream for agent events
+    ### LoRRI Integration
+    - `POST /lorri/allocate` — Production endpoint with API key auth
+    - `POST /lorri/wellness` — Driver wellness scoring
+    - `GET /lorri/health` — Integration health monitoring
+    - Webhook callbacks on allocation completion
     """,
     lifespan=lifespan,
     docs_url="/docs",
@@ -96,7 +94,7 @@ app = FastAPI(
 )
 
 
-# Global exception handler - prevent stack trace leaks in production
+# Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled error on {request.method} {request.url.path}: {exc}", exc_info=True)
@@ -106,52 +104,70 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Add CORS middleware with wide origins for demo
+# CORS — allow all for demo/hackathon, restrict in production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for demo/development
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include API routers
+# ═══ API Routers ══════════════════════════════════════════════════════════════
+
+# Core allocation
 app.include_router(allocation_router, prefix=settings.api_prefix)
 app.include_router(allocation_langgraph_router, prefix=settings.api_prefix)
+
+# Resources
 app.include_router(drivers_router, prefix=settings.api_prefix)
 app.include_router(routes_router, prefix=settings.api_prefix)
 app.include_router(feedback_router, prefix=settings.api_prefix)
 app.include_router(driver_api_router, prefix=settings.api_prefix)
+
+# Admin
 app.include_router(admin_router, prefix=settings.api_prefix)
 app.include_router(admin_learning_router, prefix=settings.api_prefix)
+
+# Consolidation (5-agent pipeline)
 app.include_router(consolidation_router, prefix=settings.api_prefix)
 
-# Include SSE agent events router (no prefix - it defines its own)
+# SSE agent events
 app.include_router(agent_events_router)
 
-# Include run-scoped endpoints
+# Run-scoped endpoints
 app.include_router(runs_router, prefix=settings.api_prefix)
 
+# ═══ LoRRI Integration (Option C) ════════════════════════════════════════════
+try:
+    from app.integrations.lorri import router as lorri_router
+    app.include_router(lorri_router, prefix="/lorri", tags=["LoRRI Integration"])
+    logger.info("✓ LoRRI integration router mounted at /lorri")
+except ImportError as e:
+    logger.warning(f"LoRRI integration not available: {e}")
+
+
+# ═══ Health & Status ══════════════════════════════════════════════════════════
 
 @app.get("/", tags=["Health"])
 async def root():
-    """Root endpoint - health check."""
+    """Root endpoint."""
     return {
         "status": "healthy",
         "service": settings.app_title,
         "version": settings.app_version,
         "docs": "/docs",
+        "lorri_integration": "/lorri/health",
     }
 
 
 @app.get("/health", tags=["Health"])
 async def health_check():
-    """Health check endpoint with actual DB verification."""
+    """Health check with DB verification."""
     from app.database import check_db_health
     db_ok = await check_db_health()
-    status_str = "healthy" if db_ok else "degraded"
     return {
-        "status": status_str,
+        "status": "healthy" if db_ok else "degraded",
         "database": "connected" if db_ok else "disconnected",
         "version": settings.app_version,
     }
@@ -159,7 +175,7 @@ async def health_check():
 
 @app.get("/api/v1/health", tags=["Health"])
 async def api_health():
-    """API health check for frontend connectivity tests."""
+    """API health for frontend connectivity."""
     from app.database import check_db_health
     db_ok = await check_db_health()
     return {
@@ -168,10 +184,12 @@ async def api_health():
         "version": settings.app_version,
         "agents": ["ml_effort", "route_planner", "fairness_manager", "driver_liaison", "final_resolution", "explainability"],
         "langgraph": True,
+        "lorri_integration": True,
     }
 
 
-# Mount static files and demo endpoints
+# ═══ Static Files & Demo Pages ════════════════════════════════════════════════
+
 if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
@@ -179,18 +197,15 @@ if FRONTEND_DIR.exists():
 
     @app.get("/demo/allocate", tags=["Demo"])
     async def demo_allocate():
-        """Serve the API demo page for testing allocation endpoint."""
-        demo_path = FRONTEND_DIR / "demo.html"
-        return FileResponse(demo_path, media_type="text/html", headers=NO_CACHE)
+        """Serve the API demo page."""
+        return FileResponse(FRONTEND_DIR / "demo.html", media_type="text/html", headers=NO_CACHE)
 
     @app.get("/demo/visualization", tags=["Demo"])
     async def demo_visualization():
         """Serve the agent visualization page."""
-        viz_path = FRONTEND_DIR / "visualization.html"
-        return FileResponse(viz_path, media_type="text/html", headers=NO_CACHE)
+        return FileResponse(FRONTEND_DIR / "visualization.html", media_type="text/html", headers=NO_CACHE)
 
     @app.get("/demo/consolidation", tags=["Demo"])
     async def demo_consolidation():
-        """Serve the 5-agent load consolidation pipeline visualization."""
-        path = FRONTEND_DIR / "consolidation.html"
-        return FileResponse(path, media_type="text/html", headers=NO_CACHE)
+        """Serve the consolidation pipeline visualization."""
+        return FileResponse(FRONTEND_DIR / "consolidation.html", media_type="text/html", headers=NO_CACHE)
