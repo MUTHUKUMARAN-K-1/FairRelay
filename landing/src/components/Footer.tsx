@@ -1,6 +1,40 @@
+import { useState, useEffect } from 'react'
 import './Footer.css'
 
+const API_URL = import.meta.env.VITE_API_URL || 'https://fairrelay-backend.onrender.com'
+
 export default function Footer() {
+  const [status, setStatus] = useState<'checking' | 'operational' | 'degraded' | 'down'>('checking')
+
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const res = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(5000) })
+        if (res.ok) {
+          const data = await res.json()
+          setStatus(data.status === 'healthy' ? 'operational' : 'degraded')
+        } else {
+          setStatus('degraded')
+        }
+      } catch {
+        setStatus('down')
+      }
+    }
+
+    checkHealth()
+    const interval = setInterval(checkHealth, 60000) // Poll every 60s
+    return () => clearInterval(interval)
+  }, [])
+
+  const statusConfig = {
+    checking: { color: '#3b82f6', text: 'Checking status…', pulse: true },
+    operational: { color: '#10b981', text: 'All systems operational', pulse: false },
+    degraded: { color: '#f59e0b', text: 'Degraded performance', pulse: true },
+    down: { color: '#ef4444', text: 'Service warming up', pulse: true },
+  }
+
+  const s = statusConfig[status]
+
   return (
     <footer className="footer">
       <div className="container footer__inner">
@@ -20,8 +54,8 @@ export default function Footer() {
           </div>
           <p>Fair routes. Happy drivers. Explainable by default.</p>
           <div className="footer__status">
-            <span className="footer__status-dot" />
-            All systems operational
+            <span className="footer__status-dot" style={{ background: s.color, boxShadow: s.pulse ? `0 0 8px ${s.color}` : 'none', animation: s.pulse ? 'pulse 2s infinite' : 'none' }} />
+            {s.text}
           </div>
         </div>
 
@@ -30,32 +64,36 @@ export default function Footer() {
             <div className="footer__col-title">Product</div>
             <a href="#features">Features</a>
             <a href="#pricing">Pricing</a>
-            <a href="#api">API Reference</a>
+            <a href={`${API_URL}/docs`} target="_blank" rel="noopener">API Reference ↗</a>
             <a href="#demo">Live Demo</a>
           </div>
           <div className="footer__col">
             <div className="footer__col-title">Developers</div>
-            <a href="#">Getting Started</a>
-            <a href="#">Endpoints</a>
-            <a href="#">SDKs</a>
-            <a href="#">Changelog</a>
+            <a href={`${API_URL}/docs`} target="_blank" rel="noopener">Getting Started ↗</a>
+            <a href={`${API_URL}/redoc`} target="_blank" rel="noopener">Endpoint Reference ↗</a>
+            <a href="https://github.com/MUTHUKUMARAN-K-1/FairRelay" target="_blank" rel="noopener">GitHub ↗</a>
+            <a href={`${API_URL}/health`} target="_blank" rel="noopener">Status Page ↗</a>
           </div>
           <div className="footer__col">
             <div className="footer__col-title">Company</div>
-            <a href="#">About</a>
-            <a href="#">Blog</a>
-            <a href="#">Privacy</a>
-            <a href="#">Terms</a>
+            <a href="https://logisticsnow.in" target="_blank" rel="noopener">LogisticsNow ↗</a>
+            <a href="https://company.lorri.in" target="_blank" rel="noopener">LoRRI Platform ↗</a>
+            <a href="mailto:muthukumaran@logisticsnow.in">Contact</a>
+            <a href="#">Privacy Policy</a>
           </div>
         </div>
       </div>
 
       <div className="footer__bottom">
         <div className="container">
-          <span>© 2026 FairRelay. Built for fair logistics.</span>
-          <span>Made with 💜 for drivers everywhere</span>
+          <span>© 2026 FairRelay by LogisticsNow Pvt. Ltd. Built for fair logistics.</span>
+          <span>Integrated with <a href="https://logisticsnow.in" target="_blank" rel="noopener" style={{ color: '#f97316' }}>LoRRI</a> · Made with 💜 for 15M+ drivers</span>
         </div>
       </div>
+
+      <style>{`
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+      `}</style>
     </footer>
   )
 }
