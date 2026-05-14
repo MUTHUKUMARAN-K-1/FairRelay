@@ -47,24 +47,17 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info(f"Starting {settings.app_title} v{settings.app_version} (env={settings.app_env})")
 
-    if not settings.is_production:
-        try:
-            from app.database import init_db
-            await init_db()
-            logger.info("Database tables initialized (dev mode)")
-        except Exception as e:
-            logger.warning(f"Database unavailable - running without persistence: {e}")
-    else:
-        # In production, just verify connectivity
-        try:
-            from app.database import check_db_health
-            healthy = await check_db_health()
-            if healthy:
-                logger.info("Database connected successfully")
-            else:
-                logger.warning("Database health check failed - some endpoints may not work")
-        except Exception as e:
-            logger.warning(f"Database check failed: {e}")
+    # Always initialize the database (creates tables for SQLite fallback)
+    try:
+        from app.database import init_db, check_db_health
+        await init_db()
+        healthy = await check_db_health()
+        if healthy:
+            logger.info("✓ Database initialized and connected")
+        else:
+            logger.warning("Database init succeeded but health check failed")
+    except Exception as e:
+        logger.warning(f"Database initialization failed - running without persistence: {e}")
 
     yield
     # Shutdown
@@ -98,8 +91,8 @@ app = FastAPI(
     - `GET /api/v1/agent-events/stream` - SSE stream for agent events
     """,
     lifespan=lifespan,
-    docs_url="/docs" if not settings.is_production else None,
-    redoc_url="/redoc" if not settings.is_production else None,
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
 
@@ -109,14 +102,14 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled error on {request.method} {request.url.path}: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error"},
+        content={"detail": "Internal server error", "error": str(exc)[:200]},
     )
 
 
-# Add CORS middleware with configurable origins
+# Add CORS middleware with wide origins for demo
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origin_list,
+    allow_origins=["*"],  # Allow all origins for demo/development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -147,6 +140,7 @@ async def root():
         "status": "healthy",
         "service": settings.app_title,
         "version": settings.app_version,
+        "docs": "/docs",
     }
 
 
@@ -155,10 +149,25 @@ async def health_check():
     """Health check endpoint with actual DB verification."""
     from app.database import check_db_health
     db_ok = await check_db_health()
-    status = "healthy" if db_ok else "degraded"
+    status_str = "healthy" if db_ok else "degraded"
     return {
-        "status": status,
+        "status": status_str,
         "database": "connected" if db_ok else "disconnected",
+        "version": settings.app_version,
+    }
+
+
+@app.get("/api/v1/health", tags=["Health"])
+async def api_health():
+    """API health check for frontend connectivity tests."""
+    from app.database import check_db_health
+    db_ok = await check_db_health()
+    return {
+        "status": "healthy" if db_ok else "degraded",
+        "database": "connected" if db_ok else "sqlite_fallback",
+        "version": settings.app_version,
+        "agents": ["ml_effort", "route_planner", "fairness_manager", "driver_liaison", "final_resolution", "explainability"],
+        "langgraph": True,
     }
 
 
