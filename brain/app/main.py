@@ -27,6 +27,7 @@ from app.api import (
 )
 from app.api.agent_events import router as agent_events_router
 from app.api.runs import router as runs_router
+from app.api.route_optimization import router as route_optimization_router
 
 # Configure structured logging
 logging.basicConfig(
@@ -82,6 +83,11 @@ app = FastAPI(
     5. **Final Resolution** — Resolves counter-proposals via swaps
     6. **Explainability** — Human-readable allocation explanations
 
+    ### Route Optimization (VRP/TSP)
+    - `POST /api/v1/routes/optimize` — Multi-stop TSP with 2-opt (before/after comparison)
+    - `POST /api/v1/routes/cluster` — DBSCAN or KMeans clustering
+    - `POST /api/v1/routes/dynamic-insert` — Cheapest-insertion re-routing
+
     ### LoRRI Integration
     - `POST /lorri/allocate` — Production endpoint with API key auth
     - `POST /lorri/wellness` — Driver wellness scoring
@@ -118,6 +124,9 @@ app.add_middleware(
 # Core allocation
 app.include_router(allocation_router, prefix=settings.api_prefix)
 app.include_router(allocation_langgraph_router, prefix=settings.api_prefix)
+
+# Route optimization (VRP/TSP + DBSCAN clustering + dynamic re-routing)
+app.include_router(route_optimization_router, prefix=settings.api_prefix)
 
 # Resources
 app.include_router(drivers_router, prefix=settings.api_prefix)
@@ -183,6 +192,7 @@ async def api_health():
         "database": "connected" if db_ok else "sqlite_fallback",
         "version": settings.app_version,
         "agents": ["ml_effort", "route_planner", "fairness_manager", "driver_liaison", "final_resolution", "explainability"],
+        "optimization": ["vrp_tsp", "2_opt", "dbscan_clustering", "time_windows", "dynamic_reroute"],
         "langgraph": True,
         "lorri_integration": True,
     }
