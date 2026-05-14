@@ -3,24 +3,38 @@ import './HowItWorks.css'
 const steps = [
   {
     step: '01',
-    title: 'Generate your API key',
-    desc: 'Sign up free, create an API key in the dashboard. It works immediately — no quota forms, no approval process.',
-    code: 'x-api-key: fr_live_sk_xxxxxxxx',
+    title: 'Geographic Clustering Agent',
+    desc: 'scikit-learn KMeans clusters shipments by pickup/drop proximity (4D feature vectors). Silhouette-score selects optimal K. Groups nearby shipments heading the same direction.',
+    code: 'Agent 1: GeoClusteringAgent\n→ KMeans + Silhouette Score\n→ 15 shipments → 4 clusters',
     color: '#f97316',
   },
   {
     step: '02',
-    title: 'POST your drivers & routes',
-    desc: 'Send your drivers (with wellness data) and routes (with constraints) in one JSON payload. Any language, any stack.',
-    code: 'POST /v1/allocate\n{ drivers: [...], routes: [...] }',
+    title: 'Time Window Compatibility Agent',
+    desc: 'Filters clusters by delivery time window overlap. Splits groups where shipments have incompatible schedules. Configurable tolerance (default: 120 min).',
+    code: 'Agent 2: TimeWindowAgent\n→ Temporal overlap filter\n→ 4 clusters → 5 time-valid groups',
     color: '#3b82f6',
   },
   {
     step: '03',
-    title: 'Get fair allocations + explanations',
-    desc: 'Receive optimized assignments with Gini fairness index, per-driver wellness scores, carbon estimates, and plain-English explanations.',
-    code: '{ gini_index: 0.12, grade: "A",\n  explanation: "..." }',
+    title: 'Capacity Optimization Agent',
+    desc: 'OR-Tools CP-SAT integer programming solver assigns shipments to trucks. Minimizes vehicles used while respecting weight + volume constraints. FFD heuristic fallback.',
+    code: 'Agent 3: CapacityOptimizationAgent\n→ OR-Tools CP-SAT solver (3s limit)\n→ 5 groups → 3 packed trucks',
     color: '#10b981',
+  },
+  {
+    step: '04',
+    title: 'Scoring & Confidence Agent',
+    desc: 'Computes per-group AI confidence (capacity fit × geo proximity × time alignment). Calculates global metrics: utilization%, trips reduced, CO₂ saved, cost saved.',
+    code: 'Agent 4: ScoringConfidenceAgent\n→ Confidence: 78-95%\n→ Utilization: 27% → 82%',
+    color: '#f59e0b',
+  },
+  {
+    step: '05',
+    title: 'Continuous Learning Agent',
+    desc: 'Q-learning RL agent records (state, action, reward) per run. Builds Q-table over time to recommend optimal (radius, tolerance) parameters. Self-improves with every execution.',
+    code: 'Agent 5: RL Q-Learning\n→ Episodes: 47 | Reward: 73.2/100\n→ Optimal: radius=30km, tol=120min',
+    color: '#ec4899',
   },
 ]
 
@@ -29,10 +43,11 @@ export default function HowItWorks() {
     <section className="hiw" id="how-it-works">
       <div className="container">
         <div className="section-header">
-          <div className="tag">How it works</div>
-          <h2 className="section-title">From integration to fair routes in minutes</h2>
+          <div className="tag">5-Agent Pipeline</div>
+          <h2 className="section-title">How the AI Consolidation Engine works</h2>
           <p className="section-sub">
-            No ML team, no weeks of setup. Add fairness-aware routing to any logistics platform with 3 steps.
+            5 specialized AI agents orchestrated by LangGraph — each handles one aspect of the
+            consolidation problem, collaborating to maximize vehicle utilization.
           </p>
         </div>
 
