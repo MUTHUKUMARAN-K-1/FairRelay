@@ -5,15 +5,16 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     dockerContext: .
+    healthCheckPath: /health
     envVars:
       - key: APP_ENV
         value: production
       - key: PORT
         value: 8000
       - key: DATABASE_URL
-        sync: false
+        value: ""
       - key: CORS_ORIGINS
-        sync: false
+        value: "https://fairrelay.vercel.app,https://fairrelay-landing.vercel.app,http://localhost:5173,http://localhost:3000"
       - key: LANGCHAIN_TRACING_V2
         value: "false"
       - key: LANGCHAIN_API_KEY
@@ -22,3 +23,5 @@ services:
         value: fairrelay-prod
       - key: GOOGLE_API_KEY
         sync: false
+      - key: ENABLE_GEMINI_EXPLAIN
+        value: "false"
