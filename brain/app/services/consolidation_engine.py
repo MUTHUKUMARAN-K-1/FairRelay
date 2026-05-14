@@ -719,10 +719,11 @@ class LearningInsightsAgent:
         for g in groups:
             if g.get("shipmentCount", 0) > 1 and g.get("shipments"):
                 first = g["shipments"][0]
-                key = (
-                    f"{first.get('pickupLocation', '').split()[0]} -> "
-                    f"{first.get('dropLocation', '').split()[0]}"
-                )
+                pickup_loc = first.get('pickupLocation', '') or f"({first.get('pickupLat', '?')},{first.get('pickupLng', '?')})"
+                drop_loc = first.get('dropLocation', '') or f"({first.get('dropLat', '?')},{first.get('dropLng', '?')})"
+                pickup_short = pickup_loc.split()[0] if pickup_loc.strip() else "Origin"
+                drop_short = drop_loc.split()[0] if drop_loc.strip() else "Dest"
+                key = f"{pickup_short} -> {drop_short}"
                 corridors[key] = corridors.get(key, 0) + g["shipmentCount"]
         top = sorted(corridors.items(), key=lambda x: -x[1])
         if top:
