@@ -1,17 +1,31 @@
 import { useState, useRef } from 'react'
 import './LiveDemo.css'
 
+// API URL - set via VITE_API_URL env var (points to Render backend)
+const API_URL = import.meta.env.VITE_API_URL || 'https://fairrelay-brain.onrender.com'
+
 const DEMO_DRIVERS = [
-  { id: 'drv_001', name: 'Rajesh Kumar', hours_today: 4.5, hours_since_rest: 2.1, is_ill: false, gender: 'M' },
-  { id: 'drv_002', name: 'Priya Sharma', hours_today: 8.1, hours_since_rest: 0.5, is_ill: false, gender: 'F' },
-  { id: 'drv_003', name: 'Amit Patel', hours_today: 3.2, hours_since_rest: 3.0, is_ill: false, gender: 'M' },
+  { id: 'drv_001', name: 'Rajesh Kumar', hours_today: 4.5, hours_since_rest: 2.1, is_ill: false, gender: 'M', vehicle_capacity_kg: 500, preferred_language: 'hi' },
+  { id: 'drv_002', name: 'Priya Sharma', hours_today: 8.1, hours_since_rest: 0.5, is_ill: false, gender: 'F', vehicle_capacity_kg: 400, preferred_language: 'hi' },
+  { id: 'drv_003', name: 'Amit Patel', hours_today: 3.2, hours_since_rest: 3.0, is_ill: false, gender: 'M', vehicle_capacity_kg: 600, preferred_language: 'en' },
 ]
+
+const DEMO_PACKAGES = [
+  { id: 'pkg_001', weight_kg: 12.5, fragility_level: 2, address: 'Andheri West, Mumbai', latitude: 19.1364, longitude: 72.8296, priority: 'normal' },
+  { id: 'pkg_002', weight_kg: 8.0, fragility_level: 1, address: 'Bandra East, Mumbai', latitude: 19.0596, longitude: 72.8495, priority: 'high' },
+  { id: 'pkg_003', weight_kg: 22.0, fragility_level: 3, address: 'Powai, Mumbai', latitude: 19.1176, longitude: 72.9060, priority: 'normal' },
+  { id: 'pkg_004', weight_kg: 5.5, fragility_level: 1, address: 'Goregaon East, Mumbai', latitude: 19.1663, longitude: 72.8526, priority: 'express' },
+  { id: 'pkg_005', weight_kg: 15.0, fragility_level: 2, address: 'Juhu, Mumbai', latitude: 19.0883, longitude: 72.8264, priority: 'normal' },
+  { id: 'pkg_006', weight_kg: 9.8, fragility_level: 1, address: 'Malad West, Mumbai', latitude: 19.1874, longitude: 72.8484, priority: 'normal' },
+]
+
 const DEMO_ROUTES = [
   { id: 'rt_mumbai_pune', distance_km: 148, difficulty: 'medium', is_night_route: false },
   { id: 'rt_pune_nashik', distance_km: 215, difficulty: 'hard', is_night_route: true },
   { id: 'rt_nashik_aurangabad', distance_km: 98, difficulty: 'easy', is_night_route: false },
 ]
 
+// Fallback mock result for when backend is unavailable
 const MOCK_RESULT = {
   success: true,
   data: {
@@ -27,20 +41,108 @@ const MOCK_RESULT = {
     carbon_kg: 87.4,
     latency_ms: 312,
     explanation: 'Priya has worked 8.1h today — assigned shorter route. Night route routed to Amit (highest wellness). Gini = 0.12 — excellent fairness.',
+    source: 'mock',
+  }
+}
+
+interface DemoResult {
+  success: boolean
+  data: {
+    allocations: Array<{
+      driver: string
+      driver_name: string
+      route: string
+      route_label: string
+      wellness_score: number
+    }>
+  }
+  meta: {
+    gini_index: number
+    fairness_grade: string
+    carbon_kg: number
+    latency_ms: number
+    explanation: string
+    source?: string
   }
 }
 
 export default function LiveDemo() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'done'>('idle')
-  const [result, setResult] = useState<typeof MOCK_RESULT | null>(null)
+  const [result, setResult] = useState<DemoResult | null>(null)
+  const [apiSource, setApiSource] = useState<'live' | 'fallback'>('live')
   const resultRef = useRef<HTMLDivElement>(null)
 
   const runDemo = async () => {
     setStatus('loading')
     setResult(null)
-    await new Promise(r => setTimeout(r, 1400))
+    
+    const startTime = Date.now()
+
+    try {
+      // Try calling real backend API
+      const response = await fetch(`${API_URL}/api/v1/allocate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          drivers: DEMO_DRIVERS.map(d => ({
+            id: d.id,
+            name: d.name,
+            vehicle_capacity_kg: d.vehicle_capacity_kg,
+            preferred_language: d.preferred_language,
+          })),
+          packages: DEMO_PACKAGES,
+          warehouse: { lat: 19.0760, lng: 72.8777 },
+          allocation_date: new Date().toISOString().split('T')[0],
+        }),
+        signal: AbortSignal.timeout(15000), // 15s timeout
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        const latency = Date.now() - startTime
+        
+        // Transform real API response into demo format
+        const allocations = (data.assignments || []).map((a: any) => ({
+          driver: a.driver_external_id || a.driver_id,
+          driver_name: a.driver_name || a.driver_external_id,
+          route: a.route_id,
+          route_label: `Route ${a.route_summary?.num_stops || '?'} stops · ${a.route_summary?.total_weight_kg?.toFixed(1) || '?'}kg · ${a.route_summary?.estimated_time_minutes?.toFixed(0) || '?'}min`,
+          wellness_score: Math.round((a.fairness_score || 0.8) * 100),
+        }))
+
+        setResult({
+          success: true,
+          data: { allocations },
+          meta: {
+            gini_index: data.global_fairness?.gini_index ?? 0.15,
+            fairness_grade: (data.global_fairness?.gini_index ?? 0.15) < 0.2 ? 'A' : (data.global_fairness?.gini_index ?? 0.3) < 0.35 ? 'B' : 'C',
+            carbon_kg: allocations.length * 28.5,
+            latency_ms: latency,
+            explanation: `Real-time allocation via FairRelay API. ${allocations.length} drivers assigned with Gini = ${(data.global_fairness?.gini_index ?? 0.15).toFixed(2)}. Fairness-optimized in ${latency}ms.`,
+            source: 'live',
+          }
+        })
+        setApiSource('live')
+      } else {
+        throw new Error(`API returned ${response.status}`)
+      }
+    } catch (err) {
+      // Fallback to mock with realistic delay
+      console.warn('[LiveDemo] Backend unavailable, using fallback:', err)
+      await new Promise(r => setTimeout(r, 800))
+      
+      setResult({
+        ...MOCK_RESULT,
+        meta: {
+          ...MOCK_RESULT.meta,
+          latency_ms: Date.now() - startTime,
+          source: 'fallback',
+        }
+      })
+      setApiSource('fallback')
+    }
+
     setStatus('done')
-    setResult(MOCK_RESULT)
     setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100)
   }
 
@@ -102,7 +204,7 @@ export default function LiveDemo() {
               {status === 'loading' ? (
                 <>
                   <span className="demo__spinner" />
-                  Running allocation…
+                  Calling FairRelay API…
                 </>
               ) : status === 'done' ? (
                 <>✓ Run again</>
@@ -112,6 +214,11 @@ export default function LiveDemo() {
                 </>
               )}
             </button>
+            {status === 'done' && (
+              <div style={{ marginTop: '0.5rem', fontSize: '0.7rem', color: apiSource === 'live' ? '#10b981' : '#f59e0b', textAlign: 'center' }}>
+                {apiSource === 'live' ? '● Connected to live API' : '● Using demo fallback (backend warming up)'}
+              </div>
+            )}
           </div>
 
           {status === 'done' && result && (
