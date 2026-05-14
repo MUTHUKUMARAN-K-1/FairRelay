@@ -21,6 +21,7 @@ import { AllocateRoutes } from "./pages/AllocateRoutes";
 import { FairDispatch } from "./pages/FairDispatch";
 import { ApiKeys } from "./pages/ApiKeys";
 import { LoadConsolidation } from "./pages/LoadConsolidation";
+import { RouteOptimization } from "./pages/RouteOptimization";
 import { useLocation } from "react-router-dom";
 
 // Protected Route Component
@@ -51,7 +52,6 @@ function DashboardLayout() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input or textarea
       if (
         (e.target as HTMLElement).tagName === "INPUT" ||
         (e.target as HTMLElement).tagName === "TEXTAREA"
@@ -59,52 +59,22 @@ function DashboardLayout() {
         return;
       }
 
-      // Help Shortcut (?)
       if (e.key === "?" && e.shiftKey) {
         e.preventDefault();
         setIsShortcutsOpen(true);
         return;
       }
 
-      // Check for Ctrl/Cmd key modifications
       if (e.ctrlKey || e.metaKey) {
         switch (e.key) {
-          case "1":
-            e.preventDefault();
-            navigate("/");
-            break;
-          case "2":
-            e.preventDefault();
-            navigate("/absorption-requests");
-            break;
-          case "3":
-            e.preventDefault();
-            navigate("/packages");
-            break;
-          case "4":
-            e.preventDefault();
-            navigate("/analytics");
-            break;
-          case "5":
-            e.preventDefault();
-            navigate("/eway-bill");
-            break;
-          case "6":
-            e.preventDefault();
-            navigate("/drivers");
-            break;
-          case "k":
-          case "K":
-            e.preventDefault();
-            document.getElementById("global-search-input")?.focus();
-            break;
-          case "q":
-          case "Q":
-            e.preventDefault();
-            showToast("Quick Actions", "Opening quick actions menu...", "info");
-            break;
-          default:
-            break;
+          case "1": e.preventDefault(); navigate("/"); break;
+          case "2": e.preventDefault(); navigate("/fair-dispatch"); break;
+          case "3": e.preventDefault(); navigate("/route-optimization"); break;
+          case "4": e.preventDefault(); navigate("/load-consolidation"); break;
+          case "5": e.preventDefault(); navigate("/analytics"); break;
+          case "6": e.preventDefault(); navigate("/drivers"); break;
+          case "k": case "K": e.preventDefault(); document.getElementById("global-search-input")?.focus(); break;
+          default: break;
         }
       }
     };
@@ -126,10 +96,8 @@ function DashboardLayout() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/fair-dispatch" element={<FairDispatch />} />
-            <Route
-              path="/absorption-requests"
-              element={<AbsorptionRequests />}
-            />
+            <Route path="/route-optimization" element={<RouteOptimization />} />
+            <Route path="/absorption-requests" element={<AbsorptionRequests />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/eway-bill" element={<EWayBill />} />
             <Route path="/drivers" element={<Drivers />} />
@@ -156,7 +124,6 @@ function DashboardLayout() {
 function AppContent() {
   const { loading } = useAuth();
 
-  // Initialize dev token if available (dev only)
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     const initializeToken = async () => {
@@ -167,10 +134,9 @@ function AppContent() {
           localStorage.setItem("authToken", data.token);
         }
       } catch {
-        // dev_token.json not found — expected in most setups
+        // dev_token.json not found — expected
       }
     };
-
     initializeToken();
   }, []);
 
