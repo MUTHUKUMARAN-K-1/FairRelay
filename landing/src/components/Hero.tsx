@@ -1,33 +1,36 @@
 import './Hero.css'
 
-const codeSnippet = `curl -X POST https://api.fairrelay.io/v1/allocate \\
+const codeSnippet = `curl -X POST https://api.fairrelay.io/v1/consolidate \\
   -H "x-api-key: fr_live_••••••••••••" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "drivers": [
-      { "id": "drv_001", "hours_today": 4.5, "is_ill": false },
-      { "id": "drv_002", "hours_today": 8.1, "is_ill": false }
+    "shipments": [
+      { "id": "sh_001", "pickupLat": 19.07, "pickupLng": 72.87,
+        "dropLat": 18.52, "dropLng": 73.85, "weight": 500,
+        "volume": 2.0, "timeWindowEnd": "2026-05-14T18:00" },
+      { "id": "sh_002", "pickupLat": 19.08, "pickupLng": 72.88,
+        "dropLat": 18.53, "dropLng": 73.86, "weight": 300,
+        "volume": 1.5, "timeWindowEnd": "2026-05-14T18:00" }
     ],
-    "routes": [
-      { "id": "rt_A", "distance_km": 142, "difficulty": "medium" },
-      { "id": "rt_B", "distance_km": 67,  "difficulty": "easy"   }
+    "trucks": [
+      { "id": "trk_1", "maxWeight": 2000, "maxVolume": 8.0 }
     ]
   }'`
 
 const responseSnippet = `{
-  "success": true,
-  "data": {
-    "allocations": [
-      { "driver": "drv_001", "route": "rt_B" },
-      { "driver": "drv_002", "route": "rt_A" }
-    ]
-  },
-  "meta": {
-    "gini_index": 0.12,
-    "fairness_grade": "A",
-    "explanation": "drv_002 assigned longer route 
-      despite high hours — override recommended.",
-    "latency_ms": 284
+  "groups": [
+    { "groupId": 1, "truckId": "trk_1",
+      "shipments": ["sh_001", "sh_002"],
+      "utilizationWeight": 82.5,
+      "confidence": 91 }
+  ],
+  "metrics": {
+    "utilizationBefore": 27.1,
+    "utilizationAfter": 82.5,
+    "tripsReduced": 3,
+    "tripReductionPercent": 50,
+    "carbonSavedKg": 14.2,
+    "optimizationScore": 87
   }
 }`
 
@@ -43,57 +46,61 @@ export default function Hero() {
         <div className="hero__left">
           <div className="tag" style={{ animationDelay: '0s' }}>
             <span className="tag__dot" />
-            Now in beta · Join 40+ logistics teams
+            LoRRI AI Hackathon 2026 · PS#4 + PS#5
           </div>
 
           <h1 className="hero__headline">
-            Route allocation
+            AI Load Consolidation
             <br />
-            that's{' '}
-            <span className="gradient-text">fair by design</span>
+            &{' '}
+            <span className="gradient-text">Route Optimization</span>
           </h1>
 
           <p className="hero__sub">
-            India has <strong>15M+ gig delivery workers</strong> — 73% earn below minimum wage because dispatch systems are biased. FairRelay's AI uses the <strong>Gini coefficient</strong> to distribute routes fairly, protect driver wellness, and cut carbon — via a single API call.
+            India's logistics networks transport <strong>60% of shipments with partially filled vehicles</strong>.
+            FairRelay's 5-agent AI pipeline intelligently groups shipments, maximizes vehicle utilization,
+            and optimizes multi-stop routes — reducing trips, cost, and carbon emissions.
           </p>
 
           <div className="hero__actions">
-            <a href="#pricing" className="btn btn--primary btn--lg">
-              Get API Key — it's free
+            <a href="#demo" className="btn btn--primary btn--lg">
+              Run Live Demo
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M3 8H13M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </a>
-            <a href="#api" className="btn btn--outline btn--lg">
-              View API docs
+            <a href="#how-it-works" className="btn btn--outline btn--lg">
+              See 5-Agent Pipeline
             </a>
           </div>
 
           <div className="hero__stats">
             <div className="hero__stat">
-              <strong>0.82 → 0.12</strong>
-              <span>Gini reduction</span>
+              <strong>27% → 82%</strong>
+              <span>Vehicle utilization</span>
+            </div>
+            <div className="hero__stat-divider" />
+            <div className="hero__stat">
+              <strong>50%</strong>
+              <span>Trips reduced</span>
             </div>
             <div className="hero__stat-divider" />
             <div className="hero__stat">
               <strong>14.2 kg</strong>
               <span>CO₂ saved/run</span>
             </div>
-            <div className="hero__stat-divider" />
-            <div className="hero__stat">
-              <strong>100%</strong>
-              <span>decisions explained</span>
-            </div>
           </div>
 
-          {/* Real Problem Stats */}
-          <div style={{ marginTop: '2rem', padding: '1rem 1.25rem', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '12px' }}>
-            <p style={{ fontSize: '0.75rem', color: '#9CA3AF', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>The problem we solve</p>
+          {/* Problem Statement Context */}
+          <div style={{ marginTop: '2rem', padding: '1rem 1.25rem', background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '12px' }}>
+            <p style={{ fontSize: '0.75rem', color: '#9CA3AF', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Novelty: Two Problem Statements Combined</p>
             <p style={{ fontSize: '0.875rem', color: '#E5E7EB', lineHeight: 1.6 }}>
-              Traditional dispatch assigns <strong style={{ color: '#f97316' }}>3× more deliveries</strong> to some drivers (Gini = 0.85) while others earn near nothing. FairRelay's 8-agent AI pipeline brings this to <strong style={{ color: '#34d399' }}>Gini = 0.12</strong> — with wellness checks, night-safety routing for women, and EV-first allocation.
+              <strong style={{ color: '#f97316' }}>PS#5</strong> AI Load Consolidation (primary) + <strong style={{ color: '#3b82f6' }}>PS#4</strong> AI Route Optimization (novelty).
+              5 AI agents orchestrated by <strong style={{ color: '#10b981' }}>LangGraph</strong> with OR-Tools CP-SAT solver,
+              K-Means clustering, and Q-learning RL — all integrated into <strong style={{ color: '#06b6d4' }}>LoRRI</strong> production via API.
             </p>
             <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
-              {[['🌍 SDG 8', 'Decent Work'], ['⚖️ SDG 10', 'Reduced Inequalities'], ['🌿 SDG 13', 'Climate Action']].map(([num, label]) => (
+              {[['🧠 5 AI Agents', 'LangGraph'], ['⚙️ OR-Tools', 'CP-SAT Solver'], ['📊 scikit-learn', 'KMeans'], ['🔄 RL Agent', 'Q-Learning']].map(([num, label]) => (
                 <span key={num} style={{ fontSize: '0.75rem', color: '#9CA3AF' }}><strong style={{ color: '#f97316' }}>{num}</strong> {label}</span>
               ))}
             </div>
@@ -108,7 +115,7 @@ export default function Hero() {
                 <span style={{background:'#f59e0b'}} />
                 <span style={{background:'#10b981'}} />
               </div>
-              <span className="code-window__title">POST /v1/allocate</span>
+              <span className="code-window__title">POST /v1/consolidate</span>
             </div>
             <div className="code-window__body">
               <pre className="code-block code-block--request">
@@ -121,7 +128,7 @@ export default function Hero() {
             <div className="code-window__header">
               <div className="hero__status-chip">
                 <span className="hero__status-dot" />
-                200 OK · 284ms
+                200 OK · 312ms
               </div>
             </div>
             <div className="code-window__body">
