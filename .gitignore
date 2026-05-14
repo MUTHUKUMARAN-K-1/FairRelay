@@ -1,0 +1,75 @@
+# ========================
+# FairRelay Monorepo
+# ========================
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+ENV/
+*.egg-info/
+*.egg
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Flutter / Android
+**/android/local.properties
+**/android/.gradle/
+**/android/app/build/
+**/android/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+*.apk
+*.aab
+
+# iOS
+**/ios/Pods/
+**/ios/.symlinks/
+
+# Build artifacts
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# RL Experience (regenerated at runtime)
+brain/data/rl_experience.json
+
+# Coverage / Testing
+.coverage
+htmlcov/
+.pytest_cache/
