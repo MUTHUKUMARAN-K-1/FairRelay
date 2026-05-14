@@ -10,21 +10,49 @@ const features = [
     ),
     color: '#f97316',
     colorBg: 'rgba(249,115,22,0.1)',
-    title: 'Fair Allocation Engine',
-    desc: 'Gini coefficient–based scoring ensures no driver is systematically overloaded or underutilized. Every allocation is measurably fair.',
-    badge: 'Gini ≤ 0.15 guaranteed',
+    title: 'Intelligent Shipment Grouping',
+    desc: 'AI-driven geographic clustering (scikit-learn KMeans) identifies shipments that can be consolidated. Considers size, route compatibility, and delivery time windows automatically.',
+    badge: '5-Agent Pipeline',
   },
   {
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" strokeWidth="1.5"/>
+        <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+        <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+        <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+        <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5"/>
       </svg>
     ),
     color: '#10b981',
     colorBg: 'rgba(16,185,129,0.1)',
-    title: 'Driver Wellness Engine',
-    desc: 'Real-time wellness scores track hours worked, rest since last break, illness flags, and max difficulty tolerance. Prevent burnout before it happens.',
-    badge: 'Burnout prevention',
+    title: 'Capacity Optimization',
+    desc: 'OR-Tools CP-SAT integer programming solver maximizes vehicle utilization. Minimizes empty miles and partially loaded trips — with First-Fit-Decreasing fallback for speed.',
+    badge: 'OR-Tools Solver',
+  },
+  {
+    icon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <path d="M9 17H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v5M12 12h9m-3-3l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+    color: '#3b82f6',
+    colorBg: 'rgba(59,130,246,0.1)',
+    title: 'AI Route Optimization',
+    desc: 'Multi-stop route sequencing using nearest-neighbor TSP and OR-Tools. Optimizes distance, time, cost, and delivery window constraints dynamically.',
+    badge: 'Multi-stop TSP',
+  },
+  {
+    icon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <path d="M3 3v18h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        <path d="M7 14l4-4 4 4 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+    color: '#f59e0b',
+    colorBg: 'rgba(245,158,11,0.1)',
+    title: 'Scenario Simulation',
+    desc: 'Compare different consolidation scenarios side-by-side. Simulate parameter changes (radius, time tolerance) and see impact on utilization, trips, and cost before deploying.',
+    badge: 'What-if analysis',
   },
   {
     icon: (
@@ -33,23 +61,11 @@ const features = [
         <path d="M8 12h8M12 8v8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
       </svg>
     ),
-    color: '#3b82f6',
-    colorBg: 'rgba(59,130,246,0.1)',
-    title: 'Carbon Estimation',
-    desc: 'Per-route CO₂ estimates included in every allocation response. Track fleet carbon footprint and surface eco-routing options.',
-    badge: 'CO₂ per km',
-  },
-  {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-      </svg>
-    ),
-    color: '#f59e0b',
-    colorBg: 'rgba(245,158,11,0.1)',
-    title: 'Explainable Decisions',
-    desc: 'Every allocation comes with a human-readable explanation. Dispatchers can understand, appeal, or override any AI decision — full transparency.',
-    badge: '100% explained',
+    color: '#ec4899',
+    colorBg: 'rgba(236,72,153,0.1)',
+    title: 'Continuous Learning (RL)',
+    desc: 'Q-learning reinforcement agent learns from every consolidation run. Automatically tunes clustering radius and time tolerance for optimal results over time.',
+    badge: 'Self-improving',
   },
   {
     icon: (
@@ -58,23 +74,11 @@ const features = [
         <path d="M12 5v2M12 17v2M5 12H3M21 12h-2M7.05 7.05l-1.41-1.41M17.37 17.37l-1.41-1.41M7.05 16.95l-1.41 1.41M17.37 6.63l-1.41 1.41" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
       </svg>
     ),
-    color: '#ec4899',
-    colorBg: 'rgba(236,72,153,0.1)',
-    title: 'Night Safety Routing',
-    desc: 'Flag routes as night-safety sensitive and automatically filter assignments based on driver preferences and safety policies.',
-    badge: 'Driver-first',
-  },
-  {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    ),
     color: '#06b6d4',
     colorBg: 'rgba(6,182,212,0.1)',
-    title: 'Drop-in Integration',
-    desc: 'One API key, one endpoint, consistent JSON response envelope. No SDKs required — works with any language or logistics stack in minutes.',
-    badge: 'REST · JSON',
+    title: 'Carbon & Cost Tracking',
+    desc: 'Every consolidation quantifies CO₂ savings, fuel reduction, and cost impact. Track carbon credits earned ($25/ton) and fuel saved (₹/km) in real-time.',
+    badge: 'ESG metrics',
   },
 ]
 
@@ -83,11 +87,11 @@ export default function Features() {
     <section className="features" id="features">
       <div className="container">
         <div className="section-header">
-          <div className="tag">Features</div>
-          <h2 className="section-title">Everything your routing brain needs</h2>
+          <div className="tag">Capabilities</div>
+          <h2 className="section-title">AI Load Consolidation + Route Optimization</h2>
           <p className="section-sub">
-            Built for logistics teams that want fairness, transparency, and driver wellbeing —
-            without the ML team.
+            Combining Problem Statement #5 (Load Consolidation) and #4 (Route Optimization)
+            into a unified AI engine that maximizes vehicle utilization and minimizes cost.
           </p>
         </div>
 
