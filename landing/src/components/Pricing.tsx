@@ -1,5 +1,7 @@
 import './Pricing.css'
 
+const API_URL = import.meta.env.VITE_API_URL || 'https://fairrelay-backend.onrender.com'
+
 const plans = [
   {
     name: 'Free',
@@ -14,7 +16,8 @@ const plans = [
       'Wellness & carbon scoring',
       'Community support',
     ],
-    cta: 'Get started free',
+    cta: 'Try Live Demo ↓',
+    ctaHref: '#demo',
     ctaStyle: 'outline',
     popular: false,
   },
@@ -29,12 +32,14 @@ const plans = [
       'Unlimited API keys',
       'Full explainability (SHAP-level)',
       'Night safety routing',
-      'Credit economy module',
+      'EV-first allocation',
       'Priority support (24h SLA)',
     ],
-    cta: 'Start free trial',
+    cta: 'View API Docs →',
+    ctaHref: `${API_URL}/docs`,
     ctaStyle: 'primary',
     popular: true,
+    external: true,
   },
   {
     name: 'Enterprise',
@@ -50,9 +55,11 @@ const plans = [
       'White-label option',
       'Dedicated engineer',
     ],
-    cta: 'Talk to us',
+    cta: 'Contact Sales →',
+    ctaHref: 'mailto:muthukumaran@logisticsnow.in?subject=FairRelay Enterprise Inquiry&body=Hi, I\'m interested in FairRelay Enterprise for our fleet operations. Our scale: [number of drivers/routes per day].',
     ctaStyle: 'outline',
     popular: false,
+    external: true,
   },
 ]
 
@@ -88,7 +95,8 @@ export default function Pricing() {
                   </li>
                 ))}
               </ul>
-              <a href="#" className={`btn btn--lg btn--${p.ctaStyle}`} style={p.popular ? {} : {}}>
+              <a href={p.ctaHref} className={`btn btn--lg btn--${p.ctaStyle}`}
+                 {...(p.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
                 {p.cta}
               </a>
             </div>
