@@ -83,10 +83,11 @@ else:
         _db_url,
         echo=settings.debug,
         future=True,
-        pool_size=20,
+        pool_size=5,
         max_overflow=10,
         pool_recycle=3600,
         pool_pre_ping=True,
+        connect_args={"statement_cache_size": 0},
     )
 
 # Session factory
