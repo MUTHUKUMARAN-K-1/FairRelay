@@ -132,15 +132,22 @@ FairRelay integrates into LoRRI (logisticsnow.in) via:
 LoRRI calls FairRelay's allocation API directly:
 
 ```bash
-POST https://fairrelay-backend.onrender.com/api/dispatch/allocate
-Authorization: Bearer <jwt-token>
+# LoRRI-dedicated endpoint (no auth required, purpose-built)
+POST https://fairrelay-brain-gdm1.onrender.com/lorri/allocate
 Content-Type: application/json
 
-{
-  "drivers": [...],
-  "routes": [...],
-  "packages": [...]
-}
+{ "drivers": [...], "packages": [...], "date": "2026-05-16" }
+
+# Full LangGraph pipeline
+POST https://fairrelay-brain-gdm1.onrender.com/api/v1/allocate/langgraph
+
+# Load Consolidation
+POST https://fairrelay-brain-gdm1.onrender.com/api/v1/consolidate
+
+# LoRRI health + stats
+GET https://fairrelay-brain-gdm1.onrender.com/lorri/health
+GET https://fairrelay-brain-gdm1.onrender.com/lorri/stats
+GET https://fairrelay-brain-gdm1.onrender.com/lorri/wellness
 ```
 
 ### Option B: Embedded Dashboard

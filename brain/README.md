@@ -197,7 +197,7 @@ streamlit run dashboard.py
 
 ### Primary Endpoint: Allocate Routes
 
-**`POST /api/v1/langgraph/allocate`**
+**`POST /api/v1/allocate/langgraph`**
 
 This single endpoint handles the complete allocation workflow.
 
