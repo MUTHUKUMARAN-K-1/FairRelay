@@ -6,7 +6,8 @@
     { "source": "/api/(.*)", "destination": "https://fairrelay-backend.onrender.com/api/$1" }
   ],
   "env": {
-    "VITE_API_URL": "https://fairrelay-backend.onrender.com"
+    "VITE_API_URL": "https://fairrelay-backend.onrender.com",
+    "VITE_OLA_MAPS_API_KEY": "L5xVnD2vrNM3pTvyv9ECH1wrfVaVxGXLb76reivs"
   },
   "headers": [
     {
