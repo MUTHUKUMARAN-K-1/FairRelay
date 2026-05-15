@@ -41,7 +41,7 @@ async def gemini_explain_node(state: AllocationState) -> Dict[str, Any]:
             api_key=api_key,
             model=gemini_model,
             temperature=0.2,
-            max_tokens=100,
+            max_tokens=500,
         )
     except Exception as e:
         return {}
