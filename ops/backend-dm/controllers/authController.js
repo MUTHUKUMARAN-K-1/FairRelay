@@ -46,11 +46,11 @@ const sendOTP = async (req, res) => {
     // Try Twilio — fall back gracefully in demo mode
     const client = makeTwilioClient();
     let smsSent = false;
-    if (client && process.env.TWILIO_PHONE_NUMBER) {
+    if (client && process.env.TWILIO_PHONE) {
       try {
         await client.messages.create({
           body: `Your FairRelay login code is: ${otp}. Valid for 5 minutes. Do not share.`,
-          from: process.env.TWILIO_PHONE_NUMBER,
+          from: process.env.TWILIO_PHONE,
           to: phone,
         });
         smsSent = true;
