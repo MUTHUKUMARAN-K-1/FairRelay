@@ -4,11 +4,28 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { User, Package, Navigation, Truck, Brain, Clock, Zap } from "lucide-react";
 import { useToast } from "../context/ToastContext";
+import { useAuth } from "../context/AuthContext";
 import {
   getAllDrivers,
   getUnassignedDeliveries,
   assignMultiStopTask,
 } from "../services/apiClient";
+
+// ── Demo deliveries shown in Testing Mode ────────────────────────────────────
+const DEMO_DELIVERIES: Delivery[] = [
+  { id: 'del-001', pickupLat: 12.9716, pickupLng: 77.5946, pickupLocation: 'Koramangala, Bangalore', dropLat: 13.0827, dropLng: 77.5877, dropLocation: 'Yelahanka, Bangalore', cargoWeight: 45 },
+  { id: 'del-002', pickupLat: 12.9366, pickupLng: 77.6101, pickupLocation: 'Bommanahalli, Bangalore', dropLat: 12.978, dropLng: 77.6408, dropLocation: 'Indiranagar, Bangalore', cargoWeight: 82 },
+  { id: 'del-003', pickupLat: 12.9352, pickupLng: 77.6245, pickupLocation: 'BTM Layout, Bangalore', dropLat: 13.0297, dropLng: 77.5612, dropLocation: 'Rajajinagar, Bangalore', cargoWeight: 60 },
+  { id: 'del-004', pickupLat: 13.03, pickupLng: 77.58, pickupLocation: 'Hebbal, Bangalore', dropLat: 12.92, dropLng: 77.675, dropLocation: 'Whitefield, Bangalore', cargoWeight: 35 },
+  { id: 'del-005', pickupLat: 12.96, pickupLng: 77.63, pickupLocation: 'HSR Layout, Bangalore', dropLat: 13.01, dropLng: 77.56, dropLocation: 'Yeshwanthpur, Bangalore', cargoWeight: 90 },
+  { id: 'del-006', pickupLat: 12.99, pickupLng: 77.57, pickupLocation: 'Malleshwaram, Bangalore', dropLat: 12.91, dropLng: 77.61, dropLocation: 'Jayanagar, Bangalore', cargoWeight: 50 },
+];
+const DEMO_DRIVERS_LIST: Driver[] = [
+  { id: 'drv-demo-1', name: 'Rajesh Kumar', phone: '+919876543210' },
+  { id: 'drv-demo-2', name: 'Priya Sharma', phone: '+919876543211' },
+  { id: 'drv-demo-3', name: 'Amit Patel', phone: '+919876543212' },
+  { id: 'drv-demo-4', name: 'Sunita Devi', phone: '+919876543213' },
+];
 
 // Fix default marker icons in Leaflet
 delete (L.Icon.Default.prototype as L.Icon & { _getIconUrl?: unknown })._getIconUrl;
@@ -81,6 +98,7 @@ function haversineKm(
 
 export function AssignTasks() {
   const { showToast } = useToast();
+  const { user, isDemo } = useAuth();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [unassignedDeliveries, setUnassignedDeliveries] = useState<Delivery[]>([]);
   const [selectedDriver, setSelectedDriver] = useState<string>("");
@@ -100,7 +118,7 @@ export function AssignTasks() {
   ]);
   const [newPkgKm] = useState(28); // New package to allocate (28 km)
 
-  const COURIER_COMPANY_ID = "20c97585-a16d-45e7-8d5f-0ef5ce85b896";
+  const COURIER_COMPANY_ID = user?.courierCompanyId || "20c97585-a16d-45e7-8d5f-0ef5ce85b896";
 
   // ── Driver input helpers ──
   const addDriver = () => {
@@ -173,6 +191,12 @@ export function AssignTasks() {
   const getInitials = (name: string) => name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
   useEffect(() => {
+    if (isDemo) {
+      setDrivers(DEMO_DRIVERS_LIST);
+      setUnassignedDeliveries(DEMO_DELIVERIES);
+      setLoading(false);
+      return;
+    }
     const fetchData = async () => {
       try {
         const [driversData, deliveriesData] = await Promise.all([
@@ -183,24 +207,15 @@ export function AssignTasks() {
           ? driversData
           : (driversData?.data || []);
         let finalDeliveries: Delivery[] = [];
-        if (Array.isArray(deliveriesData)) {
-          finalDeliveries = deliveriesData;
-        } else if (Array.isArray(deliveriesData?.data?.deliveries)) {
-          finalDeliveries = deliveriesData.data.deliveries;
-        } else if (Array.isArray(deliveriesData?.deliveries)) {
-          finalDeliveries = deliveriesData.deliveries;
-        } else if (Array.isArray(deliveriesData?.data)) {
-          finalDeliveries = deliveriesData.data;
-        }
+        if (Array.isArray(deliveriesData)) finalDeliveries = deliveriesData;
+        else if (Array.isArray(deliveriesData?.data?.deliveries)) finalDeliveries = deliveriesData.data.deliveries;
+        else if (Array.isArray(deliveriesData?.deliveries)) finalDeliveries = deliveriesData.deliveries;
+        else if (Array.isArray(deliveriesData?.data)) finalDeliveries = deliveriesData.data;
         setDrivers(normalizedDrivers);
         setUnassignedDeliveries(finalDeliveries);
       } catch (error: unknown) {
         const err = error as { friendlyMessage?: string };
-        showToast(
-          "Error",
-          err?.friendlyMessage ?? "Failed to load active data. Log in as a Dispatcher if you see 403.",
-          "error"
-        );
+        showToast("Error", err?.friendlyMessage ?? "Failed to load data. Log in as a Dispatcher if you see 403.", "error");
         setDrivers([]);
         setUnassignedDeliveries([]);
       } finally {
@@ -208,7 +223,7 @@ export function AssignTasks() {
       }
     };
     fetchData();
-  }, [showToast]);
+  }, [isDemo, showToast, COURIER_COMPANY_ID]);
 
   const activeDeliveries = Array.isArray(unassignedDeliveries)
     ? unassignedDeliveries.filter((d) => selectedDeliveries.includes(d.id))
@@ -260,6 +275,16 @@ export function AssignTasks() {
     }
     try {
       setSubmitting(true);
+
+      if (isDemo) {
+        // Demo mode: remove from list locally, no API call
+        await new Promise(r => setTimeout(r, 600));
+        setUnassignedDeliveries(prev => prev.filter(d => !selectedDeliveries.includes(d.id)));
+        setSelectedDeliveries([]);
+        showToast("Success", "[Demo] Task assigned successfully", "success");
+        return;
+      }
+
       const driver = drivers.find((d) => d.phone === selectedDriver);
       const activeDeliveriesList = unassignedDeliveries.filter((d) =>
         selectedDeliveries.includes(d.id)
@@ -281,8 +306,7 @@ export function AssignTasks() {
       const updatedDeliveries = await getUnassignedDeliveries(COURIER_COMPANY_ID);
       let finalUpdated: Delivery[] = [];
       if (Array.isArray(updatedDeliveries)) finalUpdated = updatedDeliveries;
-      else if (Array.isArray(updatedDeliveries?.data?.deliveries))
-        finalUpdated = updatedDeliveries.data.deliveries;
+      else if (Array.isArray(updatedDeliveries?.data?.deliveries)) finalUpdated = updatedDeliveries.data.deliveries;
       else if (Array.isArray(updatedDeliveries?.deliveries)) finalUpdated = updatedDeliveries.deliveries;
       else if (Array.isArray(updatedDeliveries?.data)) finalUpdated = updatedDeliveries.data;
       setUnassignedDeliveries(finalUpdated);

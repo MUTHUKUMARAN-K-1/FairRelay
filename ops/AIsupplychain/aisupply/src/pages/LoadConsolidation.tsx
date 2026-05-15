@@ -51,6 +51,8 @@ import {
   BookOpen,
 } from "lucide-react";
 import { useToast } from "../context/ToastContext";
+import { useAuth } from "../context/AuthContext";
+import { runConsolidationOptimize } from "../services/apiClient";
 
 // ── Leaflet icon fix ────────────────────────────────────────────────────────
 delete (L.Icon.Default.prototype as L.Icon & { _getIconUrl?: unknown })
@@ -493,8 +495,10 @@ const DEMO_TRUCKS: TruckDef[] = [
 
 export function LoadConsolidation() {
   const { showToast } = useToast();
+  const { isDemo } = useAuth();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [apiUsed, setApiUsed] = useState<'brain' | 'local' | null>(null);
 
   // Parameter controls
   const [radiusKm, setRadiusKm] = useState(30);
@@ -510,16 +514,35 @@ export function LoadConsolidation() {
   // Compatibility heatmap
   const [showHeatmap, setShowHeatmap] = useState(false);
 
-  // Run with current slider parameters
-  const runConsolidation = useCallback(() => {
+  // Run with current slider parameters — calls real API in non-demo mode
+  const runConsolidation = useCallback(async () => {
     setLoading(true);
+    if (!isDemo) {
+      try {
+        const apiResult = await runConsolidationOptimize({
+          shipments: DEMO_SHIPMENTS,
+          trucks: DEMO_TRUCKS,
+          options: { maxGroupRadiusKm: radiusKm, timeWindowToleranceMinutes: timeTolerance },
+        });
+        if (apiResult?.success && apiResult?.data) {
+          setResult(apiResult.data);
+          setApiUsed('brain');
+          setLoading(false);
+          showToast('AI Consolidation', 'Results from FairRelay Brain', 'success');
+          return;
+        }
+      } catch {
+        // API unreachable — fall through to local engine
+      }
+    }
     const r = runLocalConsolidation(DEMO_SHIPMENTS, DEMO_TRUCKS, {
       maxGroupRadiusKm: radiusKm,
       timeWindowToleranceMinutes: timeTolerance,
     });
     setResult(r);
+    setApiUsed('local');
     setLoading(false);
-  }, [radiusKm, timeTolerance]);
+  }, [radiusKm, timeTolerance, isDemo, showToast]);
 
   // Scenario comparison
   const runScenarios = () => {
@@ -614,6 +637,16 @@ export function LoadConsolidation() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {apiUsed && (
+            <div className={`px-2.5 py-1 rounded-lg text-xs font-medium border flex items-center gap-1.5 ${
+              apiUsed === 'brain'
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+            }`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${apiUsed === 'brain' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              {apiUsed === 'brain' ? 'AI Brain' : isDemo ? 'Demo Engine' : 'Local Engine'}
+            </div>
+          )}
           <button
             onClick={() => { runScenarios(); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-purple-500/40 bg-purple-600/10 text-purple-300 font-semibold hover:bg-purple-600/20 transition-all active:scale-[0.98]"
@@ -631,7 +664,7 @@ export function LoadConsolidation() {
             ) : (
               <Play className="w-4 h-4" />
             )}
-            Run Optimization
+            {!isDemo ? 'Run AI Optimization' : 'Run Optimization'}
           </button>
         </div>
       </div>

@@ -7,7 +7,8 @@ export interface PlaceResult {
   displayName?: string;
 }
 
-const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
+const OLA_MAPS_API_KEY = import.meta.env.VITE_OLA_MAPS_API_KEY as string;
+const OLA_AUTOCOMPLETE = 'https://api.olamaps.io/places/v1/autocomplete';
 const DEBOUNCE_MS = 400;
 
 interface NominatimAddressInputProps {
@@ -44,25 +45,25 @@ export function NominatimAddressInput({
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        q,
-        format: 'json',
-        limit: '5',
-        addressdetails: '0',
+        input: q,
+        api_key: OLA_MAPS_API_KEY,
       });
-      const res = await fetch(`${NOMINATIM_URL}?${params}`, {
-        headers: { 'User-Agent': 'EcoLogiq-DeliveryApp/1.0' },
-      });
+      const res = await fetch(`${OLA_AUTOCOMPLETE}?${params}`);
       const data = await res.json();
-      const results: PlaceResult[] = (data || []).map((r: { display_name: string; lat: string; lon: string }) => ({
-        address: r.display_name,
-        lat: parseFloat(r.lat),
-        lng: parseFloat(r.lon),
-        displayName: r.display_name,
+      const predictions = data?.predictions ?? [];
+      const results: PlaceResult[] = predictions.map((p: {
+        description: string;
+        geometry?: { location?: { lat: number; lng: number } };
+      }) => ({
+        address: p.description,
+        lat: p.geometry?.location?.lat ?? 0,
+        lng: p.geometry?.location?.lng ?? 0,
+        displayName: p.description,
       }));
       setSuggestions(results);
       setOpen(true);
     } catch (err) {
-      console.error('Nominatim search error:', err);
+      console.error('Ola Maps autocomplete error:', err);
       setSuggestions([]);
     } finally {
       setLoading(false);

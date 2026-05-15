@@ -1,6 +1,6 @@
 /**
- * Geocoding via OpenStreetMap Nominatim (replaces Google Maps Geocoding).
- * Kept filename for minimal import changes; no Google dependency.
+ * Geocoding via Ola Maps API (https://api.olamaps.io).
+ * Filename kept for minimal import changes across the codebase.
  */
 
 export interface PlaceResult {
@@ -12,32 +12,33 @@ export interface PlaceResult {
   raw?: unknown;
 }
 
-const NOMINATIM_SEARCH = 'https://nominatim.openstreetmap.org/search';
-const USER_AGENT = 'EcoLogiq-DeliveryApp/1.0';
+const OLA_MAPS_API_KEY = import.meta.env.VITE_OLA_MAPS_API_KEY as string;
+const OLA_GEOCODE = 'https://api.olamaps.io/places/v1/geocode';
 
 export async function geocodeAddress(address: string): Promise<PlaceResult | null> {
   if (!address?.trim()) return null;
   try {
     const params = new URLSearchParams({
-      q: address.trim(),
-      format: 'json',
-      limit: '1',
+      address: address.trim(),
+      api_key: OLA_MAPS_API_KEY,
     });
-    const res = await fetch(`${NOMINATIM_SEARCH}?${params}`, {
-      headers: { 'User-Agent': USER_AGENT },
-    });
+    const res = await fetch(`${OLA_GEOCODE}?${params}`);
     const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
-      const r = data[0];
+    const results = data?.geocodingResults;
+    if (Array.isArray(results) && results.length > 0) {
+      const r = results[0];
+      const loc = r.geometry?.location;
       return {
-        address: r.display_name,
-        lat: parseFloat(r.lat),
-        lng: parseFloat(r.lon),
-        displayName: r.display_name,
+        address: r.formatted_address ?? r.name,
+        lat: loc?.lat,
+        lng: loc?.lng,
+        displayName: r.formatted_address ?? r.name,
+        placeId: r.place_id,
+        raw: r,
       };
     }
   } catch (err) {
-    console.error('Geocoding error:', err);
+    console.error('Ola Maps geocoding error:', err);
   }
   return null;
 }

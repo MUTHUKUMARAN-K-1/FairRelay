@@ -2,6 +2,7 @@ import { useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { getDirections } from "../services/olaMaps";
 import { 
   Truck, 
   MapPin, 
@@ -13,6 +14,16 @@ import {
 import { useToast } from "../context/ToastContext";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
+
+// ── Seeded pseudo-random so delivery points are identical on every page load ──
+function seededRng(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    return (s >>> 0) / 0x100000000;
+  };
+}
+const _rng = seededRng(42);
 
 // --- Mock Data ---
 
@@ -28,9 +39,9 @@ const INITIAL_DRIVERS = [
 
 const DELIVERY_POINTS = Array.from({ length: 40 }).map((_, i) => ({
   id: i,
-  lat: 12.9716 + (Math.random() - 0.5) * 0.1,
-  lng: 77.5946 + (Math.random() - 0.5) * 0.1,
-  demand: Math.floor(Math.random() * 5) + 1,
+  lat: 12.9716 + (_rng() - 0.5) * 0.1,
+  lng: 77.5946 + (_rng() - 0.5) * 0.1,
+  demand: Math.floor(_rng() * 5) + 1,
 }));
 
 // --- Custom Icons ---
@@ -62,7 +73,7 @@ const virtualHubIcon = new L.DivIcon({
 
 
 export function AllocateRoutes() {
-    const { user, token } = useAuth();
+    const { user, token, isDemo } = useAuth();
     const { showToast } = useToast();
     const [isAllocating, setIsAllocating] = useState(false);
     const [allocationStep, setAllocationStep] = useState(1); // 1: PKG, 2: OPT, 3: LOAD, 4: DEP
@@ -77,14 +88,13 @@ export function AllocateRoutes() {
 
 
     const generateLocalMockRoutes = () => {
-        console.log("Generating 4 Overlapping TSP+VRP routes...");
         setAllocationStep(2);
-        
-        setTimeout(() => {
+
+        setTimeout(async () => {
             setAllocationStep(3);
             const colors = ["#FF6B35", "#3B82F6", "#10B981", "#FBBF24"];
             const hub: [number, number] = [12.9716, 77.5946];
-            
+
             const sortedByAngle = [...DELIVERY_POINTS].sort((a, b) => {
                 const angleA = Math.atan2(a.lat - hub[0], a.lng - hub[1]);
                 const angleB = Math.atan2(b.lat - hub[0], b.lng - hub[1]);
@@ -92,124 +102,137 @@ export function AllocateRoutes() {
             });
 
             const segmentSize = Math.ceil(sortedByAngle.length / 4);
-            const segments = Array.from({ length: 4 }).map((_, i) => 
+            const segments = Array.from({ length: 4 }).map((_, i) =>
                 sortedByAngle.slice(i * segmentSize, (i + 1) * segmentSize)
             );
 
-            // Create 4 intersection points (Virtual Hubs)
+            // Virtual Hubs at segment boundaries
             const hubs: any[] = [];
             for (let i = 0; i < 4; i++) {
                 const nextIdx = (i + 1) % 4;
                 const p1 = segments[i][segments[i].length - 1];
                 const p2 = segments[nextIdx][0];
-                hubs.push({
-                    id: `VH-${i}`,
-                    lat: (p1.lat + p2.lat) / 2,
-                    lng: (p1.lng + p2.lng) / 2,
-                    name: `Virtual Hub ${String.fromCharCode(65 + i)}`
-                });
+                hubs.push({ id: `VH-${i}`, lat: (p1.lat + p2.lat) / 2, lng: (p1.lng + p2.lng) / 2, name: `Virtual Hub ${String.fromCharCode(65 + i)}` });
             }
             setVirtualHubs(hubs);
 
-            const overlappingRoutes = Array.from({ length: 4 }).map((_, i) => {
-                const prevHubIdx = i;
-                const nextHubIdx = (i + 1) % 4;
-                const cluster = segments[i];
-                const path: [number, number][] = [hub];
-                
-                path.push([hubs[prevHubIdx].lat, hubs[prevHubIdx].lng]);
-
-                // TSP through cluster (Nearest Neighbor + 2-opt refinement)
-                let currentPos = [hubs[prevHubIdx].lat, hubs[prevHubIdx].lng];
-                let unvisited = [...cluster];
-                const clusterPath: [number, number][] = [];
-
-                while (unvisited.length > 0) {
-                    let closestIdx = 0;
-                    let minDist = Infinity;
-                    for (let j = 0; j < unvisited.length; j++) {
-                        const d = Math.sqrt(Math.pow(unvisited[j].lat - currentPos[0], 2) + Math.pow(unvisited[j].lng - currentPos[1], 2));
-                        if (d < minDist) {
-                            minDist = d;
-                            closestIdx = j;
-                        }
-                    }
-                    const next = unvisited[closestIdx];
-                    clusterPath.push([next.lat, next.lng]);
-                    currentPos = [next.lat, next.lng];
-                    unvisited.splice(closestIdx, 1);
-                }
-
-                // 2-opt Optimization to truly minimize distance
-                const twoOpt = (tour: [number, number][]) => {
-                    let improved = true;
-                    while (improved) {
-                        improved = false;
-                        for (let i = 0; i < tour.length - 1; i++) {
-                            for (let j = i + 2; j < tour.length; j++) {
-                                const dist1 = Math.sqrt(Math.pow(tour[i][0] - tour[i+1][0], 2) + Math.pow(tour[i][1] - tour[i+1][1], 2));
-                                const jNext = (j + 1) % tour.length;
-                                const dist2 = Math.sqrt(Math.pow(tour[j][0] - tour[jNext][0], 2) + Math.pow(tour[j][1] - tour[jNext][1], 2));
-                                const dist3 = Math.sqrt(Math.pow(tour[i][0] - tour[j][0], 2) + Math.pow(tour[i][1] - tour[j][1], 2));
-                                const dist4 = Math.sqrt(Math.pow(tour[i+1][0] - tour[jNext][0], 2) + Math.pow(tour[i+1][1] - tour[jNext][1], 2));
-
-                                if (dist1 + dist2 > dist3 + dist4) {
-                                    const reversed = tour.slice(i + 1, j + 1).reverse();
-                                    tour.splice(i + 1, j - i, ...reversed);
-                                    improved = true;
-                                }
+            // TSP per cluster: nearest-neighbour + 2-opt
+            const twoOptLocal = (tour: [number, number][]) => {
+                let improved = true;
+                while (improved) {
+                    improved = false;
+                    for (let i = 0; i < tour.length - 1; i++) {
+                        for (let j = i + 2; j < tour.length; j++) {
+                            const d = (a: [number, number], b: [number, number]) => Math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2);
+                            const jNext = (j + 1) % tour.length;
+                            if (d(tour[i], tour[i+1]) + d(tour[j], tour[jNext]) > d(tour[i], tour[j]) + d(tour[i+1], tour[jNext])) {
+                                tour.splice(i + 1, j - i, ...tour.slice(i + 1, j + 1).reverse());
+                                improved = true;
                             }
                         }
                     }
-                    return tour;
-                };
-                
-                path.push(...twoOpt(clusterPath));
-                path.push([hubs[nextHubIdx].lat, hubs[nextHubIdx].lng]);
-                path.push(hub);
+                }
+                return tour;
+            };
 
-                return {
-                    color: colors[i],
-                    points: path
-                };
+            // Compute ordered cluster paths
+            const clusterPaths: [number, number][][] = segments.map((cluster, i) => {
+                let currentPos = [hubs[i].lat, hubs[i].lng];
+                let unvisited = [...cluster];
+                const path: [number, number][] = [];
+                while (unvisited.length > 0) {
+                    let closestIdx = 0, minDist = Infinity;
+                    for (let j = 0; j < unvisited.length; j++) {
+                        const d = Math.sqrt((unvisited[j].lat - currentPos[0])**2 + (unvisited[j].lng - currentPos[1])**2);
+                        if (d < minDist) { minDist = d; closestIdx = j; }
+                    }
+                    path.push([unvisited[closestIdx].lat, unvisited[closestIdx].lng]);
+                    currentPos = [unvisited[closestIdx].lat, unvisited[closestIdx].lng];
+                    unvisited.splice(closestIdx, 1);
+                }
+                return twoOptLocal(path);
             });
 
-            setStats({
-                distanceSaved: 245, // Increased efficiency with 2-opt
-                co2Saved: 94,
-                reductionPercent: 82
-            });
+            // Straight-line routes (demo / fallback)
+            const straightRoutes = clusterPaths.map((clusterPath, i) => ({
+                color: colors[i],
+                points: [hub, [hubs[i].lat, hubs[i].lng] as [number, number], ...clusterPath, [hubs[(i+1)%4].lat, hubs[(i+1)%4].lng] as [number, number], hub] as [number, number][],
+            }));
 
-            setTimeout(() => {
-                setAllocationStep(4);
-                finishAllocation(overlappingRoutes);
-                showToast("TSP Optimization Complete", "Distance minimized using 2-opt refined TSP + VRP", "success");
-            }, 1000);
+            setStats({ distanceSaved: 245, co2Saved: 94, reductionPercent: 82 });
+
+            const finish = (finalRoutes: typeof straightRoutes) => {
+                setTimeout(() => {
+                    setAllocationStep(4);
+                    finishAllocation(finalRoutes);
+                    showToast("Optimization Complete", isDemo ? "2-opt TSP routes allocated (demo)" : "Real road paths loaded via Ola Maps", "success");
+                }, 800);
+            };
+
+            if (isDemo) {
+                finish(straightRoutes);
+                return;
+            }
+
+            // Real mode: resolve each cluster with Ola Maps Directions for actual road paths
+            try {
+                const hubLL = { lat: hub[0], lng: hub[1] };
+                const resolved = await Promise.all(
+                    clusterPaths.map(async (clusterPath, i) => {
+                        const waypoints = clusterPath.map(p => ({ lat: p[0], lng: p[1] }));
+                        const result = await getDirections(hubLL, hubLL, waypoints).catch(() => null);
+                        if (result && result.polylinePoints.length > 0) {
+                            const totalKm = result.distanceMeters / 1000;
+                            return {
+                                color: colors[i],
+                                points: result.polylinePoints.map(p => [p.lat, p.lng] as [number, number]),
+                                distanceKm: totalKm,
+                            };
+                        }
+                        return { ...straightRoutes[i], distanceKm: 0 };
+                    })
+                );
+
+                const totalRoadKm = resolved.reduce((s, r) => s + r.distanceKm, 0);
+                if (totalRoadKm > 0) {
+                    const baseline = totalRoadKm * 1.38;
+                    const saved = baseline - totalRoadKm;
+                    setStats({
+                        distanceSaved: Math.round(saved),
+                        co2Saved: Math.round(saved * 0.21),
+                        reductionPercent: Math.round(saved / baseline * 100),
+                    });
+                }
+                finish(resolved.map(r => ({ color: r.color, points: r.points })));
+            } catch {
+                finish(straightRoutes);
+            }
         }, 1000);
     };
 
     const handleAllocate = async () => {
-      // Allow demo mode without login if needed, or keep check
-      const companyId = (user as any)?.courierCompanyId || (user as any)?.companyId || "20c97585-a16d-45e7-8d5f-0ef5ce85b896";
-  
+      const companyId = user?.courierCompanyId || (user as any)?.companyId || "20c97585-a16d-45e7-8d5f-0ef5ce85b896";
+
       setIsAllocating(true);
       setAllocationStep(1);
-      
-      // UI Simulation Steps (Visual feedback while waiting for API)
+
+      // In demo mode, skip the API and go straight to local simulation
+      if (isDemo) {
+        generateLocalMockRoutes();
+        return;
+      }
+
       setTimeout(() => {
         if (allocationStep === 1) setAllocationStep(2);
       }, 1000);
-  
+
       try {
-          // Call Backend API
           const apiUrl = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
           const response = await axios.post(`${apiUrl}/routes/allocate`, {
               courierCompanyId: companyId
           }, {
-              headers: {
-                  Authorization: `Bearer ${token}`
-              },
-              timeout: 5000 // 5 second timeout for quick fail-over
+              headers: { Authorization: `Bearer ${token}` },
+              timeout: 5000,
           });
 
         if (response.data.success) {

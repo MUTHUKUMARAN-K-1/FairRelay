@@ -1,12 +1,26 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, Filter, Download, Eye, AlertTriangle, CheckCircle, Clock, MoreHorizontal, Edit, Trash, AlertCircle, Check } from 'lucide-react';
+import { Search, Filter, Download, Eye, AlertTriangle, CheckCircle, Clock, MoreHorizontal, Edit, Trash, AlertCircle, Check, Plus } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
-import { getAllBills, getEWayBillsStats, updateEWayBill, deleteEWayBill } from '../services/apiClient';
+import { useAuth } from '../context/AuthContext';
+import { getAllBills, getEWayBillsStats, createBill, updateEWayBill, deleteEWayBill } from '../services/apiClient';
 import { EWayBillDetailModal } from '../components/EWayBillDetailModal';
 import { EWayBillFormModal } from '../components/EWayBillFormModal';
 
+// ── Demo data shown in Testing Mode ────────────────────────────────────────────
+const DEMO_BILLS = [
+  { id: 'EWB-2025-001', vehicle: 'MH-12-AB-1234', from: 'Mumbai', to: 'Pune', driver: 'Rajesh Kumar', value: '₹1,25,000', valid: '2025-06-15', status: 'Active', dist: '148 km' },
+  { id: 'EWB-2025-002', vehicle: 'KA-05-XY-9876', from: 'Bangalore', to: 'Chennai', driver: 'Priya Sharma', value: '₹2,40,000', valid: '2025-06-12', status: 'Active', dist: '347 km' },
+  { id: 'EWB-2025-003', vehicle: 'DL-01-GH-5678', from: 'Delhi', to: 'Jaipur', driver: 'Amit Patel', value: '₹95,000', valid: '2025-06-20', status: 'Active', dist: '268 km' },
+  { id: 'EWB-2025-004', vehicle: 'TN-09-CD-4411', from: 'Chennai', to: 'Hyderabad', driver: 'Sunita Devi', value: '₹1,80,000', valid: '2025-06-08', status: 'Active', dist: '624 km' },
+  { id: 'EWB-2025-005', vehicle: 'MH-43-PQ-3322', from: 'Pune', to: 'Nagpur', driver: 'Vikram Singh', value: '₹75,000', valid: '2025-05-31', status: 'Expired', dist: '225 km' },
+  { id: 'EWB-2025-006', vehicle: 'GJ-15-RS-7890', from: 'Ahmedabad', to: 'Surat', driver: 'Mohan Das', value: '₹1,10,000', valid: '2025-06-14', status: 'Active', dist: '265 km' },
+  { id: 'EWB-2025-007', vehicle: 'AP-28-MN-7755', from: 'Hyderabad', to: 'Vijayawada', driver: 'Ravi Teja', value: '₹88,000', valid: '2025-06-18', status: 'Active', dist: '270 km' },
+];
+const DEMO_EWAY_STATS = { active: 6, expireSoon: 1, expired: 1 };
+
 export function EWayBill() {
   const { showToast } = useToast();
+  const { isDemo } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [billsData, setBillsData] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({ active: 0, expireSoon: 0, expired: 0 });
@@ -59,14 +73,19 @@ export function EWayBill() {
       e.stopPropagation();
       if (window.confirm('Are you sure you want to delete this E-Way Bill?')) {
           try {
-              await deleteEWayBill(id);
-              showToast('Success', 'E-Way Bill deleted successfully', 'success');
-              // Refresh data
-              setLoading(true); // temporary loading
-              const [bills, statsData] = await Promise.all([getAllBills(), getEWayBillsStats()]);
-              setBillsData(bills);
-              setStats(statsData);
-              setLoading(false);
+              if (isDemo) {
+                  setBillsData(prev => prev.filter(b => b.id !== id));
+                  setStats((prev: any) => ({ ...prev, active: Math.max(0, prev.active - 1) }));
+                  showToast('Success', '[Demo] E-Way Bill deleted', 'success');
+              } else {
+                  await deleteEWayBill(id);
+                  showToast('Success', 'E-Way Bill deleted successfully', 'success');
+                  setLoading(true);
+                  const [bills, statsData] = await Promise.all([getAllBills(), getEWayBillsStats()]);
+                  setBillsData(bills);
+                  setStats(statsData);
+                  setLoading(false);
+              }
           } catch (err) {
               console.error('Failed to delete e-way bill:', err);
               showToast('Error', 'Failed to delete E-Way Bill', 'error');
@@ -76,22 +95,42 @@ export function EWayBill() {
   };
 
   const handleUpdateSuccess = async () => {
-      showToast('Success', 'E-Way Bill updated successfully', 'success');
       setIsEditModalOpen(false);
-      // Refresh data
+      if (isDemo) {
+          showToast('Success', '[Demo] E-Way Bill saved', 'success');
+          return;
+      }
+      showToast('Success', 'E-Way Bill updated successfully', 'success');
+      const [bills, statsData] = await Promise.all([getAllBills(), getEWayBillsStats()]);
+      setBillsData(bills);
+      setStats(statsData);
+  };
+
+  const handleCreateSuccess = async () => {
+      setIsEditModalOpen(false);
+      setSelectedBill(null);
+      if (isDemo) {
+          showToast('Success', '[Demo] E-Way Bill created', 'success');
+          return;
+      }
+      showToast('Success', 'E-Way Bill created successfully', 'success');
       const [bills, statsData] = await Promise.all([getAllBills(), getEWayBillsStats()]);
       setBillsData(bills);
       setStats(statsData);
   };
 
   useEffect(() => {
+    if (isDemo) {
+      setBillsData(DEMO_BILLS);
+      setStats(DEMO_EWAY_STATS);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [bills, statsData] = await Promise.all([
-          getAllBills(),
-          getEWayBillsStats()
-        ]);
+        const [bills, statsData] = await Promise.all([getAllBills(), getEWayBillsStats()]);
         setBillsData(bills);
         setStats(statsData);
         setError(null);
@@ -103,9 +142,8 @@ export function EWayBill() {
         setLoading(false);
       }
     };
-
     fetchData();
-  }, [showToast]);
+  }, [isDemo, showToast]);
 
   const filteredBills = useMemo(() => {
     const lowerSearch = searchTerm.toLowerCase();
@@ -174,8 +212,16 @@ export function EWayBill() {
 
   return (
     <div className="space-y-6">
-       <div className="flex items-center text-sm text-eco-text-secondary mb-2">
+       <div className="flex items-center justify-between mb-2">
+         <div className="flex items-center text-sm text-eco-text-secondary">
            Dashboard <span className="mx-2">&gt;</span> <span className="text-white font-semibold">E-Way Bill</span>
+         </div>
+         <button
+           onClick={() => { setSelectedBill(null); setIsEditModalOpen(true); }}
+           className="flex items-center gap-2 px-4 py-2 bg-eco-brand-orange hover:bg-orange-600 text-white text-sm font-semibold rounded-lg transition-all active:scale-[0.98]"
+         >
+           <Plus className="w-4 h-4" /> New E-Way Bill
+         </button>
        </div>
        
        {/* Stats Row */}
@@ -367,12 +413,13 @@ export function EWayBill() {
         bill={selectedBill} 
     />
 
-    <EWayBillFormModal 
-        isOpen={isEditModalOpen} 
-        onClose={() => setIsEditModalOpen(false)} 
-        onSuccess={handleUpdateSuccess} 
+    <EWayBillFormModal
+        isOpen={isEditModalOpen}
+        onClose={() => { setIsEditModalOpen(false); setSelectedBill(null); }}
+        onSuccess={selectedBill ? handleUpdateSuccess : handleCreateSuccess}
         initialData={selectedBill}
-        updateBill={updateEWayBill}
+        updateBill={selectedBill ? updateEWayBill : undefined}
+        createBill={!selectedBill ? createBill : undefined}
     />
     </div>
   );
