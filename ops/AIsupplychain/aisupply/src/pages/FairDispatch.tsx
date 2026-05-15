@@ -264,7 +264,7 @@ export function FairDispatch() {
     URL.revokeObjectURL(url);
   };
 
-  const API_SNIPPET = `curl -X POST https://fairrelay-api.onrender.com/v1/allocate \\
+  const API_SNIPPET = `curl -X POST https://fairrelay-backend.onrender.com/api/v1/allocate \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{

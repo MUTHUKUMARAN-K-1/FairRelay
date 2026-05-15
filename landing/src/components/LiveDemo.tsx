@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import './LiveDemo.css'
 
 // API URL - set via VITE_API_URL env var (points to Render backend)
-const API_URL = import.meta.env.VITE_API_URL || 'https://fairrelay-brain.onrender.com'
+const API_URL = import.meta.env.VITE_API_URL || 'https://fairrelay-brain-gdm1.onrender.com'
 
 const DEMO_DRIVERS = [
   { id: 'drv_001', name: 'Rajesh Kumar', hours_today: 4.5, hours_since_rest: 2.1, is_ill: false, gender: 'M', vehicle_capacity_kg: 500, preferred_language: 'hi' },
