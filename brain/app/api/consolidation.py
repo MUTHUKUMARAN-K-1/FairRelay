@@ -17,8 +17,23 @@ from app.schemas.consolidation import (
     ConsolidationResult,
 )
 from app.services.consolidation_engine import run_consolidation_pipeline
+from app.services.consolidation_llm import generate_consolidation_insights
 
 router = APIRouter(prefix="/consolidate", tags=["Consolidation"])
+
+
+async def _enrich_with_llm(result: dict) -> dict:
+    """Prepend real Gemini insights to the consolidation result."""
+    llm_insights, llm_log = await generate_consolidation_insights(
+        result.get("metrics", {}),
+        result.get("groups", []),
+    )
+    if llm_insights:
+        result = dict(result)
+        result["insights"] = llm_insights + result.get("insights", [])
+        if llm_log:
+            result["agentSteps"] = list(result.get("agentSteps", [])) + [llm_log]
+    return result
 
 
 @router.post("", response_model=ConsolidationResult)
@@ -55,6 +70,7 @@ async def consolidate(req: ConsolidationRequest):
         print(f"LangGraph consolidation failed ({e}), using sync pipeline")
         result = run_consolidation_pipeline(shipments, trucks, options)
 
+    result = await _enrich_with_llm(result)
     return ConsolidationResult(**result)
 
 
@@ -74,6 +90,7 @@ async def consolidate_sync(req: ConsolidationRequest):
     options = req.options.model_dump()
 
     result = run_consolidation_pipeline(shipments, trucks, options)
+    result = await _enrich_with_llm(result)
     return ConsolidationResult(**result)
 
 
