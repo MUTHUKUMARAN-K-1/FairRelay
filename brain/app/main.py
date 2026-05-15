@@ -46,7 +46,10 @@ FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup and shutdown events."""
     # Startup
+    import os
+    _db_env = os.environ.get("DATABASE_URL", "")
     logger.info(f"Starting {settings.app_title} v{settings.app_version} (env={settings.app_env})")
+    logger.info(f"DATABASE_URL env: {'SET (' + _db_env[:30] + '...)' if _db_env else 'NOT SET - SQLite fallback'}")
 
     # Always initialize DB (creates tables for SQLite fallback)
     try:
