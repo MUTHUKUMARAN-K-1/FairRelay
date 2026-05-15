@@ -769,13 +769,22 @@ export function RouteOptimization() {
                   ) : (
                     groups.map((g: any, gi: number) => {
                       const color = GROUP_COLORS[gi % GROUP_COLORS.length];
+                      // Build consolidated truck tour: all pickups → all drops
+                      const shipments = g.shipments || [];
+                      const tourPoints: [number, number][] = [
+                        ...shipments.filter((s: any) => s.pickupLat).map((s: any) => [s.pickupLat, s.pickupLng] as [number, number]),
+                        ...shipments.filter((s: any) => s.dropLat).map((s: any) => [s.dropLat, s.dropLng] as [number, number]),
+                      ];
                       return (
                         <Fragment key={g.groupId}>
-                          {g.shipments?.map((s: any) => (
+                          {/* Consolidated truck route line through all group stops */}
+                          {tourPoints.length > 1 && (
+                            <Polyline positions={tourPoints} pathOptions={{ color, weight: 3, opacity: 0.9 }} />
+                          )}
+                          {shipments.map((s: any) => (
                             <Fragment key={s.id}>
-                              <Marker position={[s.pickupLat, s.pickupLng]} icon={createGroupIcon(color, 'P')}><Popup><b>Pickup:</b> {s.pickupLocation}<br />Group {g.groupId} · {s.weight}kg · Conf: {g.confidence}%</Popup></Marker>
+                              <Marker position={[s.pickupLat, s.pickupLng]} icon={createGroupIcon(color, 'P')}><Popup><b>Pickup:</b> {s.pickupLocation}<br />Group {g.groupId} · {s.weight}kg · Conf: {g.confidence}%<br /><span style={{color}}>■</span> Truck: {g.truckName}</Popup></Marker>
                               <Marker position={[s.dropLat,   s.dropLng]}   icon={createGroupIcon(color, 'D')}><Popup><b>Drop:</b> {s.dropLocation}<br />Group {g.groupId}</Popup></Marker>
-                              <Polyline positions={[[s.pickupLat, s.pickupLng], [s.dropLat, s.dropLng]]} pathOptions={{ color, weight: 2.5, opacity: 0.75, dashArray: '6 4' }} />
                             </Fragment>
                           ))}
                         </Fragment>
