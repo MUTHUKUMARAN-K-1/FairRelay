@@ -134,7 +134,8 @@ async def check_db_health() -> bool:
                 await conn.execute(text("DEALLOCATE ALL"))
             await conn.execute(text("SELECT 1"))
         return True
-    except Exception:
+    except Exception as e:
+        _db_logger.error(f"[DB HEALTH] check failed: {type(e).__name__}: {e}")
         return False
 
 
