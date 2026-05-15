@@ -87,7 +87,7 @@ else:
         max_overflow=10,
         pool_recycle=3600,
         pool_pre_ping=True,
-        connect_args={"statement_cache_size": 0},
+        connect_args={"statement_cache_size": 0, "ssl": "require"},
     )
 
 # Session factory
