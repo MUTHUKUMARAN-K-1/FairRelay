@@ -4,6 +4,13 @@ Main entry point for the API server.
 """
 
 import logging
+
+# Configure logging FIRST so module-level loggers in imported modules work
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -28,12 +35,6 @@ from app.api import (
 from app.api.agent_events import router as agent_events_router
 from app.api.runs import router as runs_router
 from app.api.route_optimization import router as route_optimization_router
-
-# Configure structured logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
 logger = logging.getLogger("fairrelay.brain")
 
 settings = get_settings()
