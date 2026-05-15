@@ -10,7 +10,6 @@ import os
 from sqlalchemy import CHAR, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.pool import NullPool
 from sqlalchemy.types import TypeDecorator
 
 from app.config import get_settings
@@ -84,8 +83,10 @@ else:
         _db_url,
         echo=settings.debug,
         future=True,
-        poolclass=NullPool,
-        connect_args={"statement_cache_size": 0},
+        pool_size=5,
+        max_overflow=5,
+        pool_recycle=300,
+        pool_pre_ping=True,
     )
 
 # Session factory
