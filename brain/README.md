@@ -98,9 +98,8 @@ Fair Dispatch is an AI‑assisted, **fairness‑aware route allocation engine** 
 ### 1. Clone & Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/fair-dispatch-system.git
-cd fair-dispatch-system
+git clone https://github.com/MUTHUKUMARAN-K-1/FairRelay.git
+cd FairRelay/brain
 
 # Create virtual environment
 python -m venv venv
@@ -127,15 +126,20 @@ cp .env.example .env
 **Essential environment variables:**
 
 ```env
-# Database (PostgreSQL recommended for production)
+# Database
 DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/fair_dispatch
 
 # Application
 APP_ENV=development
 DEBUG=true
 
-# Optional: Gemini API for AI explanations
+# Gemini via botlearn.ai — powers consolidation insights (required for LLM insights)
+BOTLEARN_API_KEY=your-botlearn-key
+GEMINI_MODEL=gemini-2.5-flash
+
+# Optional: Gemini for dispatch explanations (direct Google API)
 GOOGLE_API_KEY=your-gemini-api-key
+ENABLE_GEMINI_EXPLAIN=true
 
 # Optional: LangSmith tracing
 LANGCHAIN_TRACING_V2=true
@@ -163,10 +167,10 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 | Endpoint | URL |
 |----------|-----|
-| **API Documentation** | http://localhost:8000/docs |
+| **API Documentation (local)** | http://localhost:8000/docs |
+| **API Documentation (prod)** | https://fairrelay-brain-gdm1.onrender.com/docs |
+| **Health check** | https://fairrelay-brain-gdm1.onrender.com/health |
 | **ReDoc** | http://localhost:8000/redoc |
-| **Demo Page** | http://localhost:8000/demo/allocate |
-| **Admin Dashboard** | http://localhost:8000/admin |
 
 ## 📊 Visualization Dashboard
 
@@ -290,6 +294,29 @@ This single endpoint handles the complete allocation workflow.
 }
 ```
 
+### Consolidation Endpoint (5-Agent Pipeline)
+
+**`POST /api/v1/consolidate`**
+
+```json
+{
+  "shipments": [{ "id": "SH-001", "pickupLat": 19.076, "pickupLng": 72.877, "dropLat": 18.52, "dropLng": 73.856, "weight": 800, "volume": 3.2 }],
+  "trucks": [{ "id": "TRK-001", "name": "Tata Ace Gold", "maxWeight": 2000, "maxVolume": 8.0 }],
+  "options": { "maxGroupRadiusKm": 30, "timeWindowToleranceMinutes": 120 }
+}
+```
+
+**Agents:**
+1. **GeoClusteringAgent** — KMeans silhouette-optimal clustering
+2. **TimeWindowAgent** — delivery window overlap filtering
+3. **CapacityOptimizationAgent** — OR-Tools CP-SAT bin-packing
+4. **ScoringConfidenceAgent** — multi-factor confidence scoring
+5. **ContinuousLearningAgent** — Q-learning insights
+6. **GeminiInsightsAgent** — Gemini 2.5 Flash via botlearn.ai (appended if `BOTLEARN_API_KEY` set)
+
+**`POST /api/v1/consolidate/sync`** — same pipeline, no LangGraph (direct fallback)  
+**`POST /api/v1/consolidate/simulate`** — compare multiple radius/time-window scenarios
+
 ### Additional Endpoints
 
 | Method | Endpoint | Description |
@@ -326,9 +353,12 @@ pytest tests/ -n auto
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | - | PostgreSQL connection string |
+| `DATABASE_URL` | - | PostgreSQL connection string (SQLite fallback if empty) |
 | `DEBUG` | `true` | Enable debug mode |
-| `GOOGLE_API_KEY` | - | Gemini API key for explanations |
+| `BOTLEARN_API_KEY` | - | botlearn.ai key — enables Gemini consolidation insights |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Model for consolidation insights |
+| `GOOGLE_API_KEY` | - | Google Gemini key for dispatch explanations |
+| `ENABLE_GEMINI_EXPLAIN` | `false` | Enable Gemini dispatch agent |
 | `LANGCHAIN_TRACING_V2` | `false` | Enable LangSmith tracing |
 | `LANGCHAIN_API_KEY` | - | LangSmith API key |
 
