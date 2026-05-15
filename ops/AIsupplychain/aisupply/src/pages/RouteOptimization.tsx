@@ -290,8 +290,9 @@ function runLocalConsolidation(shipments: Shipment[], trucks: TruckDef[], opts: 
     };
   });
 
-  const distSaved    = Math.max(0, naiveDist - bins.reduce((s, b) => s + b.shipments.reduce((d, sh) => d + haversine(sh.pickupLat, sh.pickupLng, sh.dropLat, sh.dropLng), 0), 0));
   const tripsReduced = Math.max(0, shipments.length - bins.length);
+  // Distance saved: each eliminated truck trip saves one avg-distance route
+  const distSaved    = +(tripsReduced * (naiveDist / Math.max(shipments.length, 1))).toFixed(1);
   const avgConf      = groups.length ? groups.reduce((s, g) => s + g.confidence, 0) / groups.length : 0;
   const utilGain     = Math.min(consUtil - naiveUtil, 50);
   const tripGain     = shipments.length ? (tripsReduced / shipments.length) * 100 : 0;
@@ -531,6 +532,8 @@ export function RouteOptimization() {
     }
 
     if (!data) {
+      // Simulate 5-agent pipeline execution time so the animation is visible
+      await new Promise(r => setTimeout(r, 2400));
       data = runLocalConsolidation(DEMO_SHIPMENTS, DEMO_TRUCKS, { maxGroupRadiusKm: radiusKm, timeWindowToleranceMinutes: timeTol });
       setApiUsed('local');
       if (!isDemo) showToast('Offline Mode', 'Brain unreachable — using local engine', 'info');
