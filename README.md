@@ -611,8 +611,8 @@ fairrelay/
 
 | Component | Platform | URL Pattern |
 |-----------|----------|-------------|
-| Brain (AI Engine) | Render | `brain-api.onrender.com` |
-| Backend-DM | Render | `backend-dm.onrender.com` |
+| Brain (AI Engine) | Render | `https://fairrelay-brain-gdm1.onrender.com` |
+| Backend-DM | Render | `https://fairrelay-backend.onrender.com` |
 | Dashboard | Vercel | `dashboard.fairrelay.io` |
 | Landing Page | Vercel | `fairrelay.io` |
 

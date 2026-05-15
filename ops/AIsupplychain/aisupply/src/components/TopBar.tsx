@@ -55,7 +55,7 @@ export function TopBar() {
 
       <div className="flex items-center space-x-4">
         <a
-          href="https://fairrelay-brain.onrender.com/demo/consolidation"
+          href="https://fairrelay-brain-gdm1.onrender.com/demo/consolidation"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-sm font-semibold rounded-lg shadow-lg transition-all active:scale-95"

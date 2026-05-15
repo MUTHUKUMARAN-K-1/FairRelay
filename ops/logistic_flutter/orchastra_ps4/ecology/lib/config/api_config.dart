@@ -6,7 +6,7 @@ class ApiConfig {
       String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:3000');
   // Android emulator: http://10.0.2.2:3000
   // Physical device: http://192.168.x.x:3000
-  // Production: https://fairrelay-api.onrender.com
+  // Production: https://fairrelay-backend.onrender.com
 
   // ── Auth endpoints ────────────────────────────────────────────────────────
   static const String sendOtp = '/api/otp/send';
