@@ -51,17 +51,24 @@ class GUID(TypeDecorator):
                 return value
             return uuid.UUID(value)
 
+import logging as _logging
+_db_logger = _logging.getLogger("fairrelay.database")
+
 settings = get_settings()
 
 # Determine database URL - fallback to SQLite if no PostgreSQL configured
-_db_url = settings.database_url
+_raw_url = settings.database_url or ""
+_db_url = _raw_url.strip()
 
-if not _db_url or _db_url == "":
+_db_logger.info(f"[DB INIT] raw_url length={len(_raw_url)}, stripped length={len(_db_url)}, starts_with={_db_url[:20]!r}")
+
+if not _db_url:
     # Use SQLite as fallback (works without external DB)
     _db_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
     os.makedirs(_db_dir, exist_ok=True)
     _db_url = f"sqlite+aiosqlite:///{_db_dir}/fairrelay.db"
     _is_sqlite = True
+    _db_logger.info(f"[DB INIT] Using SQLite fallback: {_db_url}")
 else:
     # Ensure asyncpg driver prefix for async engine
     if _db_url.startswith("postgres://"):
@@ -69,6 +76,7 @@ else:
     elif _db_url.startswith("postgresql://"):
         _db_url = _db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
     _is_sqlite = False
+    _db_logger.info(f"[DB INIT] Using PostgreSQL: {_db_url[:50]}...")
 
 # Create async engine with appropriate settings
 if _is_sqlite:
