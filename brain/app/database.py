@@ -6,10 +6,12 @@ or aiosqlite for local/free-tier deployment.
 
 import uuid
 import os
+import logging as _logging
 
 from sqlalchemy import CHAR, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.pool import NullPool
 from sqlalchemy.types import TypeDecorator
 
 from app.config import get_settings
@@ -51,7 +53,7 @@ class GUID(TypeDecorator):
                 return value
             return uuid.UUID(value)
 
-import logging as _logging
+
 _db_logger = _logging.getLogger("fairrelay.database")
 
 settings = get_settings()
@@ -63,14 +65,12 @@ _db_url = _raw_url.strip()
 _db_logger.info(f"[DB INIT] raw_url length={len(_raw_url)}, stripped length={len(_db_url)}, starts_with={_db_url[:20]!r}")
 
 if not _db_url:
-    # Use SQLite as fallback (works without external DB)
     _db_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
     os.makedirs(_db_dir, exist_ok=True)
     _db_url = f"sqlite+aiosqlite:///{_db_dir}/fairrelay.db"
     _is_sqlite = True
     _db_logger.info(f"[DB INIT] Using SQLite fallback: {_db_url}")
 else:
-    # Ensure asyncpg driver prefix for async engine
     if _db_url.startswith("postgres://"):
         _db_url = _db_url.replace("postgres://", "postgresql+asyncpg://", 1)
     elif _db_url.startswith("postgresql://"):
@@ -78,7 +78,7 @@ else:
     _is_sqlite = False
     _db_logger.info(f"[DB INIT] Using PostgreSQL: {_db_url[:50]}...")
 
-# Create async engine with appropriate settings
+# Create async engine
 if _is_sqlite:
     engine = create_async_engine(
         _db_url,
@@ -87,14 +87,14 @@ if _is_sqlite:
         connect_args={"check_same_thread": False},
     )
 else:
+    # NullPool avoids connection reuse across requests — prevents
+    # asyncpg prepared-statement conflicts with Supabase pgbouncer.
     engine = create_async_engine(
         _db_url,
         echo=settings.debug,
         future=True,
-        pool_size=5,
-        max_overflow=5,
-        pool_recycle=300,
-        pool_pre_ping=True,
+        poolclass=NullPool,
+        connect_args={"statement_cache_size": 0},
     )
 
 # Session factory
@@ -130,8 +130,6 @@ async def check_db_health() -> bool:
     """Check database connectivity by running a simple query."""
     try:
         async with engine.begin() as conn:
-            if not _is_sqlite:
-                await conn.execute(text("DEALLOCATE ALL"))
             await conn.execute(text("SELECT 1"))
         return True
     except Exception as e:
@@ -142,6 +140,4 @@ async def check_db_health() -> bool:
 async def init_db() -> None:
     """Initialize database tables."""
     async with engine.begin() as conn:
-        if not _is_sqlite:
-            await conn.execute(text("DEALLOCATE ALL"))
         await conn.run_sync(Base.metadata.create_all)
