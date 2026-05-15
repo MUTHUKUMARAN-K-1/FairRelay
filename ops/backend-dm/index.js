@@ -102,12 +102,14 @@ app.get('/', (req, res) => {
     res.json({ status: 'healthy', service: 'FairRelay Backend API' });
 });
 
-app.get('/health', (req, res) => {
+app.route('/health').get((req, res) => {
     res.json({
         status: prisma ? 'healthy' : 'degraded',
         service: 'FairRelay Backend API',
         uptime: process.uptime(),
     });
+}).head((req, res) => {
+    res.sendStatus(prisma ? 200 : 503);
 });
 
 
