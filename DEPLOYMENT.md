@@ -11,8 +11,10 @@
 ┌───────────────────────────────▼─────────────────────────────────────┐
 │  Ops Dashboard (Vercel)                                             │
 │  React + Vite + TailwindCSS                                        │
-│  Pages: FairDispatch, LoadConsolidation, AssignTasks, Analytics     │
-│  URL: https://fairrelay.vercel.app                                  │
+│  Pages: Dashboard, FairDispatch, RouteOptimization, Absorption,    │
+│         Packages, AllocateRoutes, LoadConsolidation, Analytics,    │
+│         CarbonTracking, ApiKeys                                     │
+│  URL: https://fair-relay.vercel.app                                 │
 │  Root: ops/AIsupplychain/aisupply/                                  │
 └───────────────────────────────┬─────────────────────────────────────┘
                                 │ HTTPS (axios → /api/*)
@@ -30,8 +32,8 @@
 │  FastAPI + LangGraph + SQLAlchemy                                   │
 │  8 AI Agents: ML Effort → Route Planner → Fairness Manager →       │
 │  Driver Liaison → Final Resolution → Explainability → Learning      │
-│  + 5-Agent Consolidation Pipeline                                   │
-│  URL: https://fairrelay-brain.onrender.com                          │
+│  + 5-Agent Consolidation Pipeline + Gemini 2.5 Flash Insights       │
+│  URL: https://fairrelay-brain-gdm1.onrender.com                     │
 │  Root: brain/                                                       │
 └─────────────────────────────────────────────────────────────────────┘
                                 │
@@ -62,15 +64,16 @@ cd brain
 #    APP_ENV=production
 #    PORT=8000
 #    DATABASE_URL=             (leave empty for SQLite fallback)
-#    CORS_ORIGINS=https://fairrelay-backend.onrender.com,https://fairrelay.vercel.app,https://logisticsnow.in
-#    GOOGLE_API_KEY=<your-key> (optional, for Gemini explanations)
+#    CORS_ORIGINS=https://fairrelay-backend.onrender.com,https://fair-relay.vercel.app,https://logisticsnow.in
+#    GOOGLE_API_KEY=<your-key>      (optional, for Gemini dispatch explanations)
 #    GEMINI_MODEL=gemini-2.5-flash
 #    ENABLE_GEMINI_EXPLAIN=true
+#    BOTLEARN_API_KEY=<your-key>    (required for consolidation Gemini insights)
 #    LANGCHAIN_TRACING_V2=false
 ```
 
 **Health check URL:** `/health`  
-**API Docs:** `https://fairrelay-brain.onrender.com/docs`
+**API Docs:** `https://fairrelay-brain-gdm1.onrender.com/docs`
 
 ### 2. Node.js Backend → Render
 
@@ -85,7 +88,7 @@ cd ops/backend-dm
 # 5. Environment Variables:
 #    NODE_ENV=production
 #    PORT=3000
-#    BRAIN_URL=https://fairrelay-brain.onrender.com
+#    BRAIN_URL=https://fairrelay-brain-gdm1.onrender.com
 #    DATABASE_URL=<your-postgres-url>
 #    JWT_SECRET=<random-secure-string>
 #    CORS_ORIGINS=https://fairrelay.vercel.app,https://logisticsnow.in
@@ -141,12 +144,18 @@ Content-Type: application/json
 ```
 
 ### Option B: Embedded Dashboard
-Embed the FairDispatch page in an iframe:
+Embed any page in an iframe:
 
 ```html
-<iframe src="https://fairrelay.vercel.app/fair-dispatch" 
+<!-- Fair Dispatch -->
+<iframe src="https://fair-relay.vercel.app/fair-dispatch" 
         width="100%" height="800px" 
         frameborder="0" allow="clipboard-read">
+</iframe>
+
+<!-- Load Consolidation Engine -->
+<iframe src="https://fair-relay.vercel.app/route-optimization" 
+        width="100%" height="800px" frameborder="0">
 </iframe>
 ```
 
@@ -187,9 +196,10 @@ LoRRI → POST /api/v1/allocate (with drivers + packages)
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | No | SQLite | PostgreSQL URL or empty for SQLite |
 | `APP_ENV` | No | production | `development` or `production` |
-| `GOOGLE_API_KEY` | No | — | Gemini API key for LLM explanations |
-| `GEMINI_MODEL` | No | gemini-2.5-flash | Model for explanations |
-| `ENABLE_GEMINI_EXPLAIN` | No | false | Enable Gemini agent |
+| `GOOGLE_API_KEY` | No | — | Gemini API key for dispatch LLM explanations |
+| `GEMINI_MODEL` | No | gemini-2.5-flash | Model name |
+| `ENABLE_GEMINI_EXPLAIN` | No | false | Enable Gemini dispatch agent |
+| `BOTLEARN_API_KEY` | Yes* | — | botlearn.ai key for consolidation Gemini insights |
 | `LANGCHAIN_API_KEY` | No | — | LangSmith tracing key |
 | `CORS_ORIGINS` | No | * | Comma-separated allowed origins |
 
@@ -206,6 +216,7 @@ LoRRI → POST /api/v1/allocate (with drivers + packages)
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `VITE_API_URL` | Yes | /api | Backend URL (Render) |
+| `VITE_OLA_MAPS_API_KEY` | No | — | Ola Maps key for real road distances |
 
 ---
 
@@ -221,6 +232,7 @@ uvicorn app.main:app --reload --port 8000
 cd ops/backend-dm
 npm install
 echo "BRAIN_URL=http://localhost:8000" > .env
+echo "BOTLEARN_API_KEY=<your-key>" >> .env
 node index.js
 
 # Terminal 3: Ops Dashboard
@@ -230,20 +242,21 @@ echo "VITE_API_URL=http://localhost:3000" > .env
 npm run dev
 ```
 
-Open http://localhost:5173 → FairDispatch page → Run Fair Allocation
+Open http://localhost:5173 → Route Optimization → Run AI Consolidation
 
 ---
 
 ## Production Checklist
 
-- [ ] Brain deployed on Render (Docker) ✓ Health check passes
-- [ ] Node.js backend on Render ✓ `/health` returns healthy
-- [ ] Dashboard on Vercel ✓ Connects to backend
+- [ ] Brain deployed on Render (Docker) ✓ `https://fairrelay-brain-gdm1.onrender.com/health`
+- [ ] Node.js backend on Render ✓ `https://fairrelay-backend.onrender.com/health`
+- [ ] Dashboard on Vercel ✓ `https://fair-relay.vercel.app`
 - [ ] PostgreSQL database provisioned (Render/Supabase)
-- [ ] `BRAIN_URL` in backend points to brain service
-- [ ] `VITE_API_URL` in dashboard points to backend
-- [ ] CORS origins include `logisticsnow.in`
-- [ ] Gemini API key configured (optional but recommended)
+- [ ] `BRAIN_URL` in backend = `https://fairrelay-brain-gdm1.onrender.com`
+- [ ] `VITE_API_URL` in dashboard = `https://fairrelay-backend.onrender.com`
+- [ ] `BOTLEARN_API_KEY` set on brain (enables Gemini consolidation insights)
+- [ ] CORS origins include `fair-relay.vercel.app` and `logisticsnow.in`
 - [ ] SSL/HTTPS on all services (automatic on Render/Vercel)
 - [ ] Rate limiting active on auth endpoints
 - [ ] Socket.IO CORS configured for real-time updates
+- [ ] Ola Maps key set in Vercel env (`VITE_OLA_MAPS_API_KEY`) for real road distances
