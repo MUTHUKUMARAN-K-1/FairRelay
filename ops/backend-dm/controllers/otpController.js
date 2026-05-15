@@ -3,7 +3,7 @@ const { generateAccessToken } = require('../config/jwt');
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken  = process.env.TWILIO_AUTH_TOKEN;
-const fromPhone  = process.env.TWILIO_PHONE_NUMBER;
+const fromPhone  = process.env.TWILIO_PHONE;
 const IS_DEV     = process.env.NODE_ENV !== 'production';
 
 // In-memory OTP store  phone → { otp, expiresAt, attempts }

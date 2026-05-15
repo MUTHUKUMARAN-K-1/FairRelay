@@ -12,9 +12,9 @@ services:
       - key: PORT
         value: 8000
       - key: DATABASE_URL
-        value: ""
+        sync: false
       - key: CORS_ORIGINS
-        value: "https://fairrelay.vercel.app,https://fairrelay-landing.vercel.app,http://localhost:5173,http://localhost:3000"
+        value: "https://fairrelay-backend.onrender.com,https://fairrelay.vercel.app,https://fairrelay-landing.vercel.app,https://logisticsnow.in,https://app.lorri.in,http://localhost:5173,http://localhost:3000"
       - key: LANGCHAIN_TRACING_V2
         value: "false"
       - key: LANGCHAIN_API_KEY
