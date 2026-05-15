@@ -17,12 +17,14 @@ interface User {
   totalEarnings: number;
   weeklyEarnings: number;
   trucks: any[];
+  courierCompanyId?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
+  isDemo: boolean;
   loading: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
@@ -34,39 +36,46 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [isDemo, setIsDemo] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Check for existing token on mount
   useEffect(() => {
     const savedToken = localStorage.getItem("authToken");
     const savedUser = localStorage.getItem("user");
+    const savedIsDemo = localStorage.getItem("isDemo") === "true";
 
     if (savedToken && savedUser) {
       try {
         const userData = JSON.parse(savedUser);
         setToken(savedToken);
         setUser(userData);
-      } catch (error) {
-        console.error("Failed to parse saved user data:", error);
+        setIsDemo(savedIsDemo);
+      } catch {
         localStorage.removeItem("authToken");
         localStorage.removeItem("user");
+        localStorage.removeItem("isDemo");
       }
     }
     setLoading(false);
   }, []);
 
   const login = (newToken: string, newUser: User) => {
+    const demo = newToken === "test-token-dev";
     setToken(newToken);
     setUser(newUser);
+    setIsDemo(demo);
     localStorage.setItem("authToken", newToken);
     localStorage.setItem("user", JSON.stringify(newUser));
+    localStorage.setItem("isDemo", String(demo));
   };
 
   const logout = () => {
     setToken(null);
     setUser(null);
+    setIsDemo(false);
     localStorage.removeItem("authToken");
     localStorage.removeItem("user");
+    localStorage.removeItem("isDemo");
   };
 
   return (
@@ -75,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         token,
         isAuthenticated: !!token,
+        isDemo,
         loading,
         login,
         logout,

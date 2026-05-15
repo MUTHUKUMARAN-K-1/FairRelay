@@ -5,6 +5,7 @@ import { ActionButtons } from '../components/packages/ActionButtons';
 import { GlassCard } from '../components/ui/GlassCard';
 import { Package, Sparkles } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import { createDelivery } from '../services/apiClient';
 
 const initialFormData: PackageFormData = {
@@ -31,6 +32,7 @@ const initialFormData: PackageFormData = {
 
 export function Packages() {
   const { showToast } = useToast();
+  const { user, isDemo } = useAuth();
   const [formData, setFormData] = useState<PackageFormData>(initialFormData);
   const [loading, setLoading] = useState(false);
 
@@ -77,7 +79,21 @@ export function Packages() {
             return;
         }
 
-        // For 'saveAndAdd', POST to backend
+        // For 'saveAndAdd', POST to backend (or mock in demo mode)
+        if (isDemo) {
+            showToast('Success', `[Demo] Package ${data.packageId} created successfully!`, 'success');
+            localStorage.removeItem('packageDraft');
+            setFormData({ ...initialFormData, packageId: `PKG-${Math.floor(Math.random() * 10000)}` });
+            setLoading(false);
+            return;
+        }
+
+        if (!user?.id) {
+            showToast('Error', 'Not authenticated. Please log in again.', 'error');
+            setLoading(false);
+            return;
+        }
+
         const payload = {
             pickupLocation: data.pickupLocation,
             pickupLat: data.pickupLat,
@@ -90,14 +106,11 @@ export function Packages() {
             cargoType: data.cargoType,
             cargoWeight: parseFloat(data.weight) || 1,
             cargoVolumeLtrs: parseFloat(data.volume) || null,
-            /* cargoValue: null, */
-            dispatcherId:"819f1587-5cc8-41bb-921c-1312c5249b24",
-            postalCode:"600069",
+            dispatcherId: user.id,
+            postalCode: "600069",
             timeWindowStart: data.pickupTimeStart,
             timeWindowEnd: data.pickupTimeEnd,
-            distanceKm: null
-
-            // specialInstructions: data.specialInstructions
+            distanceKm: null,
         };
 
         const response = await createDelivery(payload);

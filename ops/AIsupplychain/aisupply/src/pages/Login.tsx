@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Phone, Lock, CheckCircle, AlertCircle } from "lucide-react";
+import { Phone, Lock, CheckCircle, AlertCircle, FlaskConical } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { sendOTP, verifyOTP } from "../services/apiClient";
@@ -36,6 +36,24 @@ export function Login() {
   const validatePhone = (value: string) => {
     const phoneRegex = /^\+91\d{10}$/;
     return phoneRegex.test(value);
+  };
+
+  const handleTestingMode = () => {
+    login("test-token-dev", {
+      id: "test-001",
+      name: "Test Dispatcher",
+      phone: "+910000000000",
+      role: "DISPATCHER",
+      status: "active",
+      rating: 5,
+      deliveriesCount: 42,
+      totalEarnings: 50000,
+      weeklyEarnings: 8000,
+      trucks: [],
+      courierCompanyId: "20c97585-a16d-45e7-8d5f-0ef5ce85b896",
+    });
+    showToast("Testing Mode", "Bypassed login — welcome!", "success");
+    navigate("/dashboard");
   };
 
   const handleSendOTP = async (e: React.FormEvent) => {
@@ -168,6 +186,21 @@ export function Login() {
                   className="w-full bg-eco-brand-orange hover:bg-orange-600 text-white font-semibold py-3 rounded-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? "Sending OTP..." : "Send OTP"}
+                </button>
+
+                <div className="relative flex items-center my-1">
+                  <div className="flex-grow border-t border-eco-card-border"></div>
+                  <span className="mx-3 text-xs text-eco-text-secondary">or</span>
+                  <div className="flex-grow border-t border-eco-card-border"></div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleTestingMode}
+                  className="w-full flex items-center justify-center gap-2 bg-eco-secondary/50 hover:bg-eco-secondary border border-dashed border-yellow-500/50 hover:border-yellow-400 text-yellow-400 hover:text-yellow-300 font-medium py-3 rounded-lg transition-all active:scale-[0.98]"
+                >
+                  <FlaskConical className="w-4 h-4" />
+                  Testing Mode
                 </button>
               </form>
             </>
