@@ -424,13 +424,39 @@ class ScoringAgent:
         avg_cap = (sum(t["maxWeight"] for t in trucks) / len(trucks)) if trucks else 1
         naive_util = (total_weight / (len(shipments) * avg_cap)) * 100 if shipments else 0
 
+        def _tour_km(pts: list) -> float:
+            """Greedy nearest-neighbour tour through (lat, lng) points."""
+            if len(pts) <= 1:
+                return 0.0
+            rem = list(pts)
+            cur = rem.pop(0)
+            d = 0.0
+            while rem:
+                nxt = min(rem, key=lambda p: haversine_distance(cur[0], cur[1], p[0], p[1]))
+                d += haversine_distance(cur[0], cur[1], nxt[0], nxt[1])
+                cur = nxt
+                rem.remove(nxt)
+            return d
+
         cons_dist = 0
         groups = []
         for i, b in enumerate(bins):
-            g_dist = sum(
-                haversine_distance(s["pickupLat"], s["pickupLng"], s["dropLat"], s["dropLng"])
-                for s in b["shipments"]
-            )
+            ss = b["shipments"]
+            if len(ss) == 1:
+                g_dist = haversine_distance(ss[0]["pickupLat"], ss[0]["pickupLng"], ss[0]["dropLat"], ss[0]["dropLng"])
+            else:
+                # Multi-stop tour: pickup tour → connector → drop tour
+                pickups = [(s["pickupLat"], s["pickupLng"]) for s in ss]
+                drops = [(s["dropLat"], s["dropLng"]) for s in ss]
+                avg_plat = sum(p[0] for p in pickups) / len(pickups)
+                avg_plng = sum(p[1] for p in pickups) / len(pickups)
+                avg_dlat = sum(d[0] for d in drops) / len(drops)
+                avg_dlng = sum(d[1] for d in drops) / len(drops)
+                g_dist = (
+                    _tour_km(pickups)
+                    + haversine_distance(avg_plat, avg_plng, avg_dlat, avg_dlng)
+                    + _tour_km(drops)
+                )
             cons_dist += g_dist
 
             cap_fit = min((b["usedW"] / b["truck"]["maxWeight"]) * 100, 100)
