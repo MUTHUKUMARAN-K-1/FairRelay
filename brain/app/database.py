@@ -121,7 +121,9 @@ async def get_db() -> AsyncSession:
 async def check_db_health() -> bool:
     """Check database connectivity by running a simple query."""
     try:
-        async with engine.connect() as conn:
+        async with engine.begin() as conn:
+            if not _is_sqlite:
+                await conn.execute(text("DEALLOCATE ALL"))
             await conn.execute(text("SELECT 1"))
         return True
     except Exception:
@@ -131,4 +133,6 @@ async def check_db_health() -> bool:
 async def init_db() -> None:
     """Initialize database tables."""
     async with engine.begin() as conn:
+        if not _is_sqlite:
+            await conn.execute(text("DEALLOCATE ALL"))
         await conn.run_sync(Base.metadata.create_all)
