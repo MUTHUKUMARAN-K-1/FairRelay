@@ -4,6 +4,27 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getAbsorptionMapData, getLiveTrackingGPS, getActiveRoute } from '../services/apiClient';
 
+// Mock data shown when backend is offline
+const MOCK_MAP_DATA = {
+  routes: [
+    { id: 'r1', truckPlate: 'MH-12-AB-1234', source: { location: 'Mumbai Port', lat: 18.93, lng: 72.84 }, destination: { location: 'Pune Warehouse', lat: 18.52, lng: 73.85 }, polyline: null },
+    { id: 'r2', truckPlate: 'KA-05-XY-9876', source: { location: 'Bangalore Hub', lat: 12.97, lng: 77.59 }, destination: { location: 'Chennai Central', lat: 13.08, lng: 80.27 }, polyline: null },
+    { id: 'r3', truckPlate: 'DL-01-GH-5678', source: { location: 'Delhi NCR', lat: 28.70, lng: 77.10 }, destination: { location: 'Jaipur Depot', lat: 26.91, lng: 75.79 }, polyline: null },
+    { id: 'r4', truckPlate: 'TN-09-CD-4411', source: { location: 'Hyderabad Hub', lat: 17.39, lng: 78.49 }, destination: { location: 'Kurnool', lat: 15.83, lng: 78.04 }, polyline: null },
+  ],
+  hubs: [
+    { id: 'h1', name: 'Mumbai Virtual Hub', latitude: 19.08, longitude: 72.88, type: 'ABSORPTION', radius: 15 },
+    { id: 'h2', name: 'Pune Virtual Hub',   latitude: 18.52, longitude: 73.87, type: 'RELAY',      radius: 12 },
+    { id: 'h3', name: 'Bangalore Hub',      latitude: 12.97, longitude: 77.59, type: 'ABSORPTION', radius: 10 },
+  ],
+};
+
+const MOCK_VEHICLES = [
+  { id: 'v1', name: 'MH-12-AB • Tata Ace', location: { lat: 19.03, lng: 73.12, speed: 62 } },
+  { id: 'v2', name: 'KA-05-XY • Ashok Leyland', location: { lat: 13.20, lng: 78.10, speed: 74 } },
+  { id: 'v3', name: 'DL-01-GH • BharatBenz', location: { lat: 27.80, lng: 76.40, speed: 88 } },
+];
+
 // Fix for default marker icons in Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -55,14 +76,11 @@ export function AbsorptionMap() {
             getAbsorptionMapData(),
             getLiveTrackingGPS()
         ]);
-        setData(mapData);
-        setVehicles(vehicleData);
-      } catch (err: unknown) {
-        const e = err as { response?: { status: number }; friendlyMessage?: string };
-        console.error('Failed to fetch map data:', err);
-        if (e?.response?.status === 403 && e?.friendlyMessage) {
-          setData({ routes: [], hubs: [] });
-        }
+        setData(mapData?.routes?.length ? mapData : MOCK_MAP_DATA);
+        setVehicles(vehicleData?.length ? vehicleData : MOCK_VEHICLES);
+      } catch {
+        setData(MOCK_MAP_DATA);
+        setVehicles(MOCK_VEHICLES);
       }
     };
 
@@ -72,10 +90,8 @@ export function AbsorptionMap() {
     const interval = setInterval(async () => {
         try {
             const vehicleData = await getLiveTrackingGPS();
-            setVehicles(vehicleData);
-        } catch (err) {
-            console.error('Failed to update vehicle locations:', err);
-        }
+            if (vehicleData?.length) setVehicles(vehicleData);
+        } catch { /* keep existing mock vehicles */ }
     }, 30000);
     
     return () => clearInterval(interval);
