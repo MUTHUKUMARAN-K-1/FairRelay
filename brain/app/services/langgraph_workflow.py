@@ -74,7 +74,7 @@ def create_allocation_graph(
     workflow.add_node("explainability", explainability_node)
     
     # Optional: Gemini Explainability Node
-    if enable_gemini and os.getenv("GOOGLE_API_KEY"):
+    if enable_gemini and os.getenv("BOTLEARN_API_KEY"):
         try:
             from app.services.gemini_explain_node import gemini_explain_node
             workflow.add_node("gemini_explain", gemini_explain_node)
@@ -125,7 +125,7 @@ def create_allocation_graph(
     workflow.add_edge("final_resolution", "explainability")
     
     # Explainability -> Gemini or END
-    if enable_gemini and os.getenv("GOOGLE_API_KEY"):
+    if enable_gemini and os.getenv("BOTLEARN_API_KEY"):
         try:
             from app.services.gemini_explain_node import gemini_explain_node
             workflow.add_edge("explainability", "gemini_explain")
