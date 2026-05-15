@@ -1,4 +1,4 @@
-import { LayoutDashboard, BarChart3, FileText, FileSpreadsheet, Users, LogOut, Leaf, Package, ClipboardList, Navigation, Brain, Shield, Key, Layers, Route } from 'lucide-react';
+import { LayoutDashboard, BarChart3, FileSpreadsheet, LogOut, Leaf, Package, Navigation, Brain, Shield, Key, Layers, Route } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { NavLink } from 'react-router-dom';
 
@@ -8,12 +8,9 @@ const navItems = [
   { icon: Route, label: 'Route Optimizer', to: '/route-optimization' },
   { icon: FileSpreadsheet, label: 'Absorption', to: '/absorption-requests' },
   { icon: Package, label: 'Packages', to: '/packages' },
-  { icon: ClipboardList, label: 'Assign Tasks', to: '/assign-tasks' },
   { icon: Navigation, label: 'Allocate Routes', to: '/allocate-routes' },
   { icon: Layers, label: 'Load Consolidation', to: '/load-consolidation' },
   { icon: BarChart3, label: 'Analytics', to: '/analytics' },
-  { icon: FileText, label: 'E-Way Bill', to: '/eway-bill' },
-  { icon: Users, label: 'Drivers', to: '/drivers' },
   { icon: Leaf, label: 'Carbon Tracking', to: '/carbon-tracking' },
   { icon: Key, label: 'API Keys', to: '/api-keys' },
 ];

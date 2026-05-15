@@ -16,7 +16,7 @@ import {
   Layers, Play, Truck, TrendingUp, Leaf, Route, Package, Zap, FlaskConical,
   Check, ArrowRight, Brain, Sliders, ToggleLeft, ToggleRight, Lightbulb,
   DollarSign, Target, Award, BookOpen, Loader2, CheckCircle, Activity,
-  ChevronRight, Cpu, Sparkles, Navigation, Map, BarChart3, RefreshCw,
+  ChevronRight, Cpu, Sparkles, Navigation, Map as MapIcon, BarChart3, RefreshCw,
 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -1132,7 +1132,7 @@ export function RouteOptimization() {
 
             {/* Mumbai Stops Grid */}
             <div className="bg-eco-card border border-eco-card-border rounded-xl p-4">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><Map className="w-3.5 h-3.5 text-blue-400" /> Delivery Stops ({numStops}) — Mumbai Urban</h3>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><MapIcon className="w-3.5 h-3.5 text-blue-400" /> Delivery Stops ({numStops}) — Mumbai Urban</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
                 {mumStops.map((stop, i) => (
                   <div key={stop.id} className="flex items-center gap-2 p-2.5 bg-white/3 border border-white/5 rounded-lg hover:border-blue-500/20 transition-all">
@@ -1170,7 +1170,7 @@ export function RouteOptimization() {
 
                 {/* SVG Before / After */}
                 <div className="bg-eco-card border border-eco-card-border rounded-xl p-5">
-                  <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2"><Map className="w-4 h-4 text-blue-400" /> Route Visualization — Before vs After</h3>
+                  <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2"><MapIcon className="w-4 h-4 text-blue-400" /> Route Visualization — Before vs After</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Before */}
                     <div>
