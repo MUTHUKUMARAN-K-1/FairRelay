@@ -23,30 +23,27 @@ async def gemini_explain_node(state: AllocationState) -> Dict[str, Any]:
     Falls back to template-based explanations on API error.
     """
     # Check for API key
-    api_key = os.getenv("GOOGLE_API_KEY")
+    api_key = os.getenv("BOTLEARN_API_KEY")
     if not api_key:
-        # No API key, return existing explanations unchanged
         return {}
-    
+
     try:
-        from langchain_google_genai import ChatGoogleGenerativeAI
+        from langchain_openai import ChatOpenAI
         from langchain.prompts import PromptTemplate
     except ImportError:
-        # LangChain Google GenAI not installed
         return {}
-    
-    # Initialize Gemini - use accessible model with fallback
+
     gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-    
+
     try:
-        llm = ChatGoogleGenerativeAI(
+        llm = ChatOpenAI(
+            base_url="https://models.botlearn.ai/v1",
+            api_key=api_key,
             model=gemini_model,
-            google_api_key=api_key,
-            temperature=0.2,  # Consistent tone
-            max_tokens=100,   # Keep explanations concise (<50 words)
+            temperature=0.2,
+            max_tokens=100,
         )
     except Exception as e:
-        # Model initialization failed, skip Gemini
         return {}
     
     # Rich prompt template with Tamil/English support

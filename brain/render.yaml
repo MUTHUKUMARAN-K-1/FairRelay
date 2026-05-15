@@ -21,7 +21,9 @@ services:
         sync: false
       - key: LANGCHAIN_PROJECT
         value: fairrelay-prod
-      - key: GOOGLE_API_KEY
+      - key: BOTLEARN_API_KEY
         sync: false
       - key: ENABLE_GEMINI_EXPLAIN
-        value: "false"
+        value: "true"
+      - key: GEMINI_MODEL
+        value: "gemini-2.5-flash"
