@@ -15,7 +15,7 @@ import {
 import {
   Layers, Play, Truck, TrendingUp, Leaf, Route, Package, Zap, FlaskConical,
   Check, ArrowRight, Brain, Sliders, ToggleLeft, ToggleRight, Lightbulb,
-  DollarSign, Target, Award, BookOpen, Clock, Loader2, CheckCircle, Activity,
+  DollarSign, Target, Award, BookOpen, Loader2, CheckCircle, Activity,
   ChevronRight, Cpu, Sparkles, Navigation, Map, BarChart3, RefreshCw,
 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
@@ -60,7 +60,7 @@ interface Shipment {
   timeWindowStart?: string; timeWindowEnd?: string; priority?: 'HIGH' | 'MEDIUM' | 'LOW';
 }
 interface TruckDef { id: string; name: string; maxWeight: number; maxVolume: number; }
-interface RouteStop { id: string; lat: number; lng: number; type: 'pickup' | 'drop'; label: string; }
+interface RouteStop { id: string; shipmentId: string; lat: number; lng: number; type: 'pickup' | 'drop'; label: string; }
 
 // ── Demo Data ────────────────────────────────────────────────────────────────
 const DEMO_SHIPMENTS: Shipment[] = [
@@ -152,8 +152,8 @@ function twoOpt(tour: number[], dm: number[][]): void {
 function optimizeGroupRoute(group: any): { naiveDist: number; optDist: number; savedKm: number; savedPct: number; naiveOrder: RouteStop[]; optOrder: RouteStop[] } {
   const stops: RouteStop[] = [];
   for (const s of (group.shipments || [])) {
-    if (s.pickupLat != null) stops.push({ id: `P-${s.id}`, lat: s.pickupLat, lng: s.pickupLng, type: 'pickup', label: s.pickupLocation || `Pickup ${s.id}` });
-    if (s.dropLat != null)   stops.push({ id: `D-${s.id}`, lat: s.dropLat,   lng: s.dropLng,   type: 'drop',   label: s.dropLocation   || `Drop ${s.id}` });
+    if (s.pickupLat != null) stops.push({ id: `P-${s.id}`, shipmentId: s.id, lat: s.pickupLat, lng: s.pickupLng, type: 'pickup', label: s.pickupLocation || `Pickup ${s.id}` });
+    if (s.dropLat != null)   stops.push({ id: `D-${s.id}`, shipmentId: s.id, lat: s.dropLat,   lng: s.dropLng,   type: 'drop',   label: s.dropLocation   || `Drop ${s.id}` });
   }
   if (stops.length <= 2) {
     const d = stops.length === 2 ? haversine(stops[0].lat, stops[0].lng, stops[1].lat, stops[1].lng) : 0;
@@ -322,7 +322,7 @@ function runLocalConsolidation(shipments: Shipment[], trucks: TruckDef[], opts: 
 
 function generateInsights(shipments: Shipment[], groups: any[], m: any) {
   const insights: { type: 'pattern' | 'recommendation' | 'learning'; text: string; impact: 'high' | 'medium' | 'low' }[] = [];
-  const corridors = new Map<string, number>();
+  const corridors: Map<string, number> = new Map();
   groups.forEach((g: any) => {
     if (g.shipments?.length > 1) {
       const key = `${g.shipments[0].pickupLocation?.split(' ')[0]} → ${g.shipments[0].dropLocation?.split(' ')[0]}`;
