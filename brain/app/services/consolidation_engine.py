@@ -315,16 +315,12 @@ class CapacityAgent:
             for i in range(n_items):
                 model.Add(x[i, j] <= y[j])
 
-        # Shipments from the same geo-group should prefer the same truck (soft)
-        unique_groups = set(group_ids)
-        for gi in unique_groups:
-            members = [i for i, g in enumerate(group_ids) if g == gi]
-            if len(members) > 1:
-                for j in range(n_trucks):
-                    # bonus variable for grouping
-                    all_same = model.NewBoolVar(f"grp_{gi}_truck_{j}")
-                    for m in members:
-                        model.Add(x[m, j] >= all_same)
+        # Shipments from DIFFERENT geo-groups must not share a truck (hard constraint)
+        for i in range(n_items):
+            for k in range(i + 1, n_items):
+                if group_ids[i] != group_ids[k]:
+                    for j in range(n_trucks):
+                        model.Add(x[i, j] + x[k, j] <= 1)
 
         # Objective: minimize trucks used, then maximize utilization
         model.Minimize(sum(y[j] * 1000 for j in range(n_trucks)))
