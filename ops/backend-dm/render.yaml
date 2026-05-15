@@ -13,7 +13,7 @@ services:
       - key: PORT
         value: 3000
       - key: BRAIN_URL
-        value: https://fairrelay-brain.onrender.com
+        value: https://fairrelay-brain-gdm1.onrender.com
       - key: JWT_SECRET
         sync: false
       - key: DATABASE_URL
