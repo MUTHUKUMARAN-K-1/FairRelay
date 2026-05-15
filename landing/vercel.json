@@ -6,6 +6,6 @@
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "env": {
-    "VITE_API_URL": "https://fairrelay-backend.onrender.com"
+    "VITE_API_URL": "https://fairrelay-brain-gdm1.onrender.com"
   }
 }
