@@ -317,6 +317,65 @@ This single endpoint handles the complete allocation workflow.
 **`POST /api/v1/consolidate/sync`** — same pipeline, no LangGraph (direct fallback)  
 **`POST /api/v1/consolidate/simulate`** — compare multiple radius/time-window scenarios
 
+### LoRRI Integration Endpoints
+
+Purpose-built namespace for LoRRI (logisticsnow.in) TMS integration. No auth required on carbon/health; others need `x-api-key: fr_live_demo_key_2026`.
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET`  | `/lorri/health`           | None | Health + uptime check for LoRRI monitoring |
+| `POST` | `/lorri/allocate`         | Key  | Fair dispatch in LoRRI-native format, returns Gini + carbon |
+| `POST` | `/lorri/wellness`         | Key  | Driver wellness scoring before dispatch |
+| `GET`  | `/lorri/stats`            | Key  | Performance stats for LoRRI dashboard |
+| `POST` | `/lorri/carbon/estimate`  | None | **Carbon Intelligence Agent** — per-shipment CO₂ estimation |
+
+#### `POST /lorri/carbon/estimate`
+
+No auth required. Runs the 5-step Carbon Intelligence Agent pipeline and returns per-shipment CO₂ figures, high-emission lane ranking, reduction opportunities, and a Gemini 2.5 Flash AI insight.
+
+```bash
+curl -X POST https://fairrelay-brain-gdm1.onrender.com/lorri/carbon/estimate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "shipments": [
+      { "id": "SH-001", "lane": "Mumbai → Pune",    "dist_km": 149, "weight_kg": 800,  "max_kg": 2000, "truck": "Tata Ace Gold" },
+      { "id": "SH-002", "lane": "Delhi → Jaipur",   "dist_km": 281, "weight_kg": 1500, "max_kg": 5000, "truck": "Eicher Pro 2049" }
+    ],
+    "date": "2026-05-16"
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "shipments": [
+      { "id": "SH-001", "co2_kg": 12.6, "co2_baseline_kg": 31.3, "co2_saved_kg": 18.7, "load_factor_pct": 40, "risk": "LOW" }
+    ],
+    "highEmissionLanes": [{ "lane": "Delhi → Jaipur", "co2_kg": 17.7, "risk": "LOW" }],
+    "reductionOpportunities": [
+      { "lane": "Mumbai → Pune", "type": "consolidation", "finding": "Load factor 40% — consolidation can save 7.5 kg CO₂/run.", "saving_kg": 7.5, "effort": "Low" }
+    ],
+    "summary": {
+      "totalCo2Kg": 30.3, "savedCo2Kg": 27.0, "savingsPct": 47.1,
+      "highRiskCount": 0, "carbonCreditUSD": 0.41
+    },
+    "aiInsight": "Fleet is emitting 30.3 kg CO₂ — 47.1% below full-load baseline. Consolidating low-load corridors is the highest-ROI action."
+  },
+  "meta": { "model": "CO₂ = dist_km × (weight/capacity) × 0.21 kg/km", "latency_ms": 45, "agent": "CarbonIntelligenceAgent/1.0" }
+}
+```
+
+**Emission model:** `CO₂ (kg) = distance_km × (weight_kg / max_kg) × 0.21` (IPCC AR6 India road freight factor)
+
+**Agent pipeline (all server-side):**
+1. Data Ingestion — validate & normalise shipment payload
+2. Emission Estimation — apply 0.21 kg CO₂/km × load factor per shipment
+3. Lane Profiling — rank corridors by emission intensity
+4. Opportunity Detection — consolidation, scheduling, vehicle-upgrade actions
+5. AI Insight Generation — Gemini 2.5 Flash narrative (rule-based fallback if key absent)
+
 ### Additional Endpoints
 
 | Method | Endpoint | Description |
