@@ -7,6 +7,150 @@
 
 ---
 
+## LoRRI — Integration at a Glance
+
+> **LoRRI doesn't need to rebuild anything. Three API calls — that's the entire integration.**
+
+---
+
+### Call 1 — Fair Dispatch
+
+```
+POST https://fairrelay-brain-gdm1.onrender.com/api/v1/allocate/langgraph
+```
+
+```json
+// Send
+{
+  "drivers":  [ { "id": "drv_001", "name": "Rajan", "vehicle_capacity_kg": 2000 } ],
+  "packages": [ { "id": "pkg_001", "weight_kg": 5.0, "latitude": 18.52, "longitude": 73.85, "address": "Pune Industrial", "fragility_level": 2 } ],
+  "date":     "2026-05-16",
+  "warehouse": { "lat": 19.076, "lng": 72.877 }
+}
+```
+
+```json
+// Get back
+{
+  "global_fairness": { "gini_index": 0.034, "fairness_grade": "A+" },
+  "assignments": [
+    {
+      "driver_name": "Rajan",
+      "route_summary": { "num_packages": 12, "estimated_time_minutes": 145 },
+      "explanation": "Rajan gets the shorter Mumbai-Pune corridor — keeps workload balanced across the fleet.",
+      "fairness_score": 0.92
+    }
+  ],
+  "agent_events": [
+    { "agent": "ml_effort_agent",  "message": "Effort matrix built"             },
+    { "agent": "route_planner",    "message": "OR-Tools assignment proposed"     },
+    { "agent": "fairness_manager", "message": "ACCEPT — Gini 0.034 below 0.25"  },
+    { "agent": "driver_liaison",   "message": "No appeals raised"                },
+    { "agent": "explainability",   "message": "Natural language explanations done" }
+  ]
+}
+```
+
+**8 agents. Fair assignments + Gini score + per-driver explanations + full agent trace.**
+
+---
+
+### Call 2 — Load Consolidation
+
+```
+POST https://fairrelay-brain-gdm1.onrender.com/api/v1/consolidate
+```
+
+```json
+// Send
+{
+  "shipments": [
+    { "id": "SH-001", "pickupLat": 19.076, "pickupLng": 72.877, "dropLat": 18.52, "dropLng": 73.856, "weight": 800  },
+    { "id": "SH-002", "pickupLat": 19.113, "pickupLng": 72.869, "dropLat": 18.58, "dropLng": 73.724, "weight": 600  },
+    { "id": "SH-003", "pickupLat": 19.033, "pickupLng": 72.855, "dropLat": 18.46, "dropLng": 73.850, "weight": 500  }
+  ],
+  "trucks":  [ { "id": "TRK-001", "maxWeight": 2000 }, { "id": "TRK-002", "maxWeight": 5000 } ],
+  "options": { "maxGroupRadiusKm": 30, "timeWindowToleranceMinutes": 120 }
+}
+```
+
+```json
+// Get back
+{
+  "data": {
+    "groups": [
+      {
+        "groupId": "G1", "truck": "TRK-001",
+        "shipments": ["SH-001", "SH-002"],
+        "utilizationPct": 70,
+        "co2SavedKg": 22.5,
+        "carbonCreditUSD": 0.34
+      }
+    ],
+    "metrics": {
+      "tripsBefore": 3, "tripsAfter": 2, "tripsReduced": 1,
+      "distanceSavedKm": 137, "totalCo2SavedKg": 22.5, "fuelSavedINR": 3150
+    }
+  },
+  "agentSteps": [
+    { "agent": "GeoClusteringAgent",       "ms": 120 },
+    { "agent": "TimeWindowAgent",          "ms": 85  },
+    { "agent": "CapacityOptimizationAgent","ms": 340 },
+    { "agent": "ScoringConfidenceAgent",   "ms": 45  },
+    { "agent": "ContinuousLearningAgent",  "ms": 90  }
+  ],
+  "insights": [ "Consolidating SH-001+SH-002 reduces trips by 33% and saves 22.5 kg CO₂ on this corridor." ]
+}
+```
+
+**5 agents. Consolidated groups + utilization metrics + CO₂ saved + Gemini AI insights.**
+
+---
+
+### Call 3 — Carbon Intelligence (No Auth)
+
+```
+POST https://fairrelay-brain-gdm1.onrender.com/lorri/carbon/estimate
+```
+
+```json
+// Send
+{
+  "shipments": [
+    { "id": "SH-001", "lane": "Mumbai → Pune",    "dist_km": 149, "weight_kg": 800,  "max_kg": 2000 },
+    { "id": "SH-002", "lane": "Delhi → Jaipur",   "dist_km": 281, "weight_kg": 1500, "max_kg": 5000 },
+    { "id": "SH-003", "lane": "Hyd → Kurnool",    "dist_km": 215, "weight_kg": 1800, "max_kg": 3000 }
+  ]
+}
+```
+
+```json
+// Get back
+{
+  "data": {
+    "summary": {
+      "totalCo2Kg": 57.3, "savedCo2Kg": 78.2, "savingsPct": 57.7,
+      "highRiskCount": 0,  "carbonCreditUSD": 1.17
+    },
+    "highEmissionLanes": [
+      { "lane": "Hyd → Kurnool", "co2_kg": 27.1, "risk": "MEDIUM" }
+    ],
+    "reductionOpportunities": [
+      { "lane": "Delhi → Jaipur", "type": "consolidation", "saving_kg": 16.5, "effort": "Low" }
+    ],
+    "aiInsight": "Fleet emitting 57.3 kg CO₂ — consolidating the Delhi-Jaipur corridor (30% loaded) delivers the fastest reduction with zero operational disruption."
+  }
+}
+```
+
+**5-step agent pipeline. Per-shipment CO₂ model + high-emission lane flags + Gemini AI sustainability insight.**
+
+---
+
+> **"LoRRI sends us their data. We run 8 + 5 + 5 agents. They get back optimized assignments, fairness scores, consolidated loads, carbon impact, and AI narratives — in under 3 seconds."**
+
+---
+
 ## Table of Contents
 
 1. [Architecture Overview](#1-architecture-overview)
