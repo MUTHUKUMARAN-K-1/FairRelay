@@ -347,6 +347,189 @@ async def lorri_wellness(request: Request):
     return {"success": True, "data": {"drivers": scored}}
 
 
+# ── Carbon Intelligence Agent ─────────────────────────────────────────────────
+
+class CarbonShipmentInput(BaseModel):
+    """A single shipment for carbon estimation."""
+    id: str
+    lane: str
+    dist_km: float
+    weight_kg: float
+    max_kg: float
+    truck: Optional[str] = "Standard Truck"
+
+
+class CarbonEstimateRequest(BaseModel):
+    """Request body for the carbon intelligence agent."""
+    shipments: List[CarbonShipmentInput]
+    date: Optional[str] = None
+
+
+@router.post("/carbon/estimate")
+async def lorri_carbon_estimate(request: CarbonEstimateRequest):
+    """
+    Carbon Intelligence Agent — per-shipment CO₂ emission estimation for LoRRI.
+
+    No auth required (public computation endpoint — no sensitive data).
+
+    Pipeline:
+      1. Data Ingestion   — validate & normalise shipment payload
+      2. Emission Estimation — CO₂ = dist_km × (weight/capacity) × 0.21 kg/km
+      3. Lane Profiling   — rank corridors by emission intensity
+      4. Opportunity Detection — consolidation, scheduling, vehicle-upgrade actions
+      5. AI Insight Generation — Gemini 2.5 Flash narrative (falls back to rule-based)
+
+    Returns per-shipment figures, high-emission lane list, reduction opportunities,
+    fleet summary, and a natural-language AI insight.
+    """
+    t0 = time.time()
+
+    EMISSION_FACTOR = 0.21   # kg CO₂ per km at full load (India road freight, IPCC AR6)
+    HIGH_THRESHOLD  = 50.0   # kg CO₂/shipment → HIGH risk
+    MED_THRESHOLD   = 25.0   # kg CO₂/shipment → MEDIUM risk
+
+    # ── Step 1: Ingest ────────────────────────────────────────────────────────
+    shipments_in = request.shipments
+
+    # ── Step 2: Emission estimation ───────────────────────────────────────────
+    results: List[Dict[str, Any]] = []
+    for s in shipments_in:
+        lf       = s.weight_kg / max(s.max_kg, 1.0)
+        co2      = round(s.dist_km * lf * EMISSION_FACTOR, 1)
+        baseline = round(s.dist_km * EMISSION_FACTOR, 1)
+        saved    = round(baseline - co2, 1)
+        risk     = "HIGH" if co2 > HIGH_THRESHOLD else "MEDIUM" if co2 > MED_THRESHOLD else "LOW"
+        results.append({
+            "id": s.id, "lane": s.lane,
+            "dist_km": s.dist_km, "weight_kg": s.weight_kg, "max_kg": s.max_kg,
+            "truck": s.truck,
+            "load_factor_pct": round(lf * 100),
+            "co2_kg": co2, "co2_baseline_kg": baseline, "co2_saved_kg": saved,
+            "risk": risk,
+        })
+
+    # ── Step 3: Lane profiling ────────────────────────────────────────────────
+    lanes_sorted = sorted(results, key=lambda x: x["co2_kg"], reverse=True)
+    high_emission_lanes = [
+        {"lane": r["lane"], "co2_kg": r["co2_kg"], "risk": r["risk"]}
+        for r in lanes_sorted
+    ]
+
+    # ── Step 4: Opportunity detection ─────────────────────────────────────────
+    opps: List[Dict[str, Any]] = []
+    for r in results:
+        if r["load_factor_pct"] < 70:
+            saving = round(r["co2_saved_kg"] * 0.4, 1)
+            opps.append({
+                "lane": r["lane"], "type": "consolidation",
+                "finding": (
+                    f"Load factor {r['load_factor_pct']}% — consolidation opportunity. "
+                    f"Estimated saving: {saving} kg CO₂/run."
+                ),
+                "saving_kg": saving, "effort": "Low",
+            })
+        if r["risk"] == "HIGH":
+            saving = round(r["co2_kg"] * 0.12, 1)
+            opps.append({
+                "lane": r["lane"], "type": "scheduling",
+                "finding": (
+                    f"Night-window dispatch (22:00–05:00) reduces fuel burn ~12% → "
+                    f"saves {saving} kg CO₂."
+                ),
+                "saving_kg": saving, "effort": "Low",
+            })
+
+    # Vehicle upgrade for top emitter
+    if results:
+        top    = max(results, key=lambda x: x["co2_kg"])
+        saving = round(top["co2_kg"] * 0.238, 1)   # 0.21 → 0.16 kg/km = 23.8% drop
+        opps.append({
+            "lane": top["lane"], "type": "vehicle_upgrade",
+            "finding": (
+                f"Upgrade to BS6 Euro-6 equivalent (emission factor 0.21→0.16 kg/km) "
+                f"saves {saving} kg CO₂ on highest-emission corridor."
+            ),
+            "saving_kg": saving, "effort": "Medium",
+        })
+
+    opps = sorted(opps, key=lambda x: x["saving_kg"], reverse=True)[:5]
+
+    # ── Step 5: AI insight (Gemini 2.5 Flash via botlearn.ai) ─────────────────
+    total_co2   = round(sum(r["co2_kg"]          for r in results), 1)
+    total_base  = round(sum(r["co2_baseline_kg"] for r in results), 1)
+    total_saved = round(total_base - total_co2, 1)
+    savings_pct = round((total_saved / max(total_base, 1)) * 100, 1)
+    high_count  = sum(1 for r in results if r["risk"] == "HIGH")
+
+    ai_insight: Optional[str] = None
+    gemini_key = os.getenv("BOTLEARN_API_KEY") or os.getenv("GOOGLE_API_KEY")
+
+    if gemini_key:
+        try:
+            prompt = (
+                f"You are a carbon analytics AI for Indian road freight. "
+                f"Fleet: {len(results)} shipments, {total_co2} kg total CO₂, "
+                f"{total_saved} kg saved vs full-load baseline ({savings_pct}% reduction). "
+                f"High-risk lanes: {[r['lane'] for r in results if r['risk'] == 'HIGH']}. "
+                f"Write exactly 2 sentences of actionable insight for a logistics manager. "
+                f"Be specific about India freight. No markdown, no bullet points."
+            )
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                resp = await client.post(
+                    "https://api.botlearn.ai/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {gemini_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": "gemini-2.5-flash",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "max_tokens": 130,
+                    },
+                )
+                if resp.status_code == 200:
+                    ai_insight = resp.json()["choices"][0]["message"]["content"].strip()
+        except Exception as exc:
+            logger.warning(f"Carbon AI insight skipped: {exc}")
+
+    if not ai_insight:
+        corridor_label = f"{high_count} high-risk corridor{'s' if high_count != 1 else ''}"
+        ai_insight = (
+            f"Fleet is emitting {total_co2} kg CO₂ across {len(results)} active shipments — "
+            f"{total_saved} kg ({savings_pct}%) saved vs full-load baseline. "
+            f"{corridor_label} flagged: consolidation of low-load lanes and night-window dispatch "
+            f"are the highest-ROI reduction actions available today."
+        )
+
+    latency_ms = int((time.time() - t0) * 1000)
+
+    return {
+        "success": True,
+        "data": {
+            "date":                  request.date or datetime.utcnow().strftime("%Y-%m-%d"),
+            "shipments":             results,
+            "highEmissionLanes":     high_emission_lanes,
+            "reductionOpportunities": opps,
+            "summary": {
+                "totalCo2Kg":      total_co2,
+                "baselineCo2Kg":   total_base,
+                "savedCo2Kg":      total_saved,
+                "savingsPct":      savings_pct,
+                "highRiskCount":   high_count,
+                "carbonCreditUSD": round(total_saved * 0.015, 2),
+                "shipmentCount":   len(results),
+            },
+            "aiInsight": ai_insight,
+        },
+        "meta": {
+            "model":          "CO₂ = dist_km × (weight/capacity) × 0.21 kg/km",
+            "emissionFactor": EMISSION_FACTOR,
+            "latency_ms":     latency_ms,
+            "agent":          "CarbonIntelligenceAgent/1.0",
+        },
+    }
+
+
 @router.get("/stats", dependencies=[Depends(verify_api_key)])
 async def lorri_stats():
     """Get FairRelay performance stats for LoRRI dashboard integration."""
