@@ -24,10 +24,11 @@ import logging
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from collections import defaultdict, deque
+from urllib.parse import urlparse
 
 import httpx
 from fastapi import APIRouter, Request, HTTPException, Depends
-from fastapi.responses import JSONResponse
+
 from pydantic import BaseModel, validator
 
 logger = logging.getLogger("fairrelay.lorri")
@@ -43,6 +44,19 @@ LORRI_API_KEYS = set(filter(None, _raw_keys.split(",")))
 
 # Rate limiting (in-memory, production should use Redis)
 _rate_limits: Dict[str, List[float]] = defaultdict(list)
+
+
+def _is_safe_callback_url(url: str) -> bool:
+    """Allow only https:// URLs on non-private, non-loopback hosts."""
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme != "https":
+            return False
+        host = (parsed.hostname or "").lower()
+        blocked_prefixes = ("localhost", "127.", "10.", "192.168.", "169.254.", "0.0.0.0", "::1")
+        return not any(host.startswith(p) for p in blocked_prefixes)
+    except Exception:
+        return False
 RATE_LIMIT_MAX = 100  # requests per minute
 RATE_LIMIT_WINDOW = 60  # seconds
 
@@ -167,7 +181,7 @@ async def lorri_health():
 
 
 @router.post("/allocate", dependencies=[Depends(verify_api_key)])
-async def lorri_allocate(request: LoRRIAllocateRequest, raw_request: Request):
+async def lorri_allocate(request: LoRRIAllocateRequest):
     """
     LoRRI-compatible allocation endpoint.
     
@@ -266,13 +280,16 @@ async def lorri_allocate(request: LoRRIAllocateRequest, raw_request: Request):
             "latency_ms": latency_ms,
         })
         
-        # Send to per-request callback if provided
+        # Send to per-request callback if provided (SSRF-safe: https only, no private IPs)
         if request.callback_url:
-            try:
-                async with httpx.AsyncClient(timeout=5.0) as client:
-                    await client.post(request.callback_url, json=response_data)
-            except Exception:
-                pass
+            if not _is_safe_callback_url(request.callback_url):
+                logger.warning(f"Blocked unsafe callback_url: {request.callback_url}")
+            else:
+                try:
+                    async with httpx.AsyncClient(timeout=5.0) as client:
+                        await client.post(request.callback_url, json=response_data)
+                except Exception:
+                    pass
         
         return response_data
         
@@ -337,6 +354,18 @@ class CarbonShipmentInput(BaseModel):
     weight_kg: float
     max_kg: float
     truck: Optional[str] = "Standard Truck"
+
+    @validator("dist_km")
+    def validate_dist(cls, v):
+        if v < 0 or v > 50_000:
+            raise ValueError("dist_km must be between 0 and 50 000 km")
+        return v
+
+    @validator("weight_kg", "max_kg")
+    def validate_weight(cls, v):
+        if v < 0 or v > 100_000:
+            raise ValueError("weight must be between 0 and 100 000 kg")
+        return v
 
 
 class CarbonEstimateRequest(BaseModel):

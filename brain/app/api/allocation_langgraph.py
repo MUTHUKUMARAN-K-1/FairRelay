@@ -3,9 +3,12 @@ LangGraph-enabled Allocation API endpoint.
 Wraps the existing allocation logic with LangGraph orchestration.
 """
 
+import logging
 import statistics
 import uuid
 from datetime import datetime, timedelta
+
+logger = logging.getLogger("fairrelay.allocation_langgraph")
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -406,7 +409,14 @@ async def allocate_langgraph(
             route = route_by_id.get(route_id_str)
             
             if not driver or not route:
-                continue
+                logger.error(
+                    f"Allocation lookup miss: driver_id={driver_id_str!r} route_id={route_id_str!r} "
+                    f"not found in local maps — workflow serialization bug"
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail={"message": "Allocation incomplete: driver/route lookup failed", "run_id": str(allocation_run.id)},
+                )
             
             effort = final_per_driver_effort.get(driver_id_str, alloc_item["effort"])
             avg_effort = final_fairness["metrics"]["avg_effort"]
