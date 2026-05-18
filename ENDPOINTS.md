@@ -347,7 +347,7 @@ curl -X POST https://fairrelay-brain-gdm1.onrender.com/lorri/allocate \
 | `options.warehouse_lat` | float | No | Pickup depot latitude |
 | `options.warehouse_lng` | float | No | Pickup depot longitude |
 | `options.date` | string | No | ISO date (default: today) |
-| `callback_url` | string | No | Webhook URL for async notification |
+| `callback_url` | string | No | Webhook URL for async notification. **Must be `https://` and a public IP/domain — private IPs and localhost are blocked (SSRF protection).** |
 
 **Response `200 OK` (live mode):**
 ```json
@@ -390,7 +390,7 @@ curl -X POST https://fairrelay-brain-gdm1.onrender.com/lorri/allocate \
     "gini_index": 0.034,
     "fairness_grade": "A+",
     "avg_workload": 62.8,
-    "carbon_kg": 168.0,
+    "carbon_note": "Use POST /lorri/carbon/estimate for accurate CO₂ figures",
     "latency_ms": 387,
     "mode": "live",
     "agents_used": [
@@ -405,23 +405,16 @@ curl -X POST https://fairrelay-brain-gdm1.onrender.com/lorri/allocate \
 }
 ```
 
-**Response `200 OK` (fallback mode — brain DB unavailable):**
+**Response `503 Service Unavailable` (pipeline failure — DB unavailable or LangGraph error):**
 ```json
 {
-  "success": true,
-  "data": {
-    "id": "run_fallback_1716123456",
-    "allocations": [ ... ]
-  },
-  "meta": {
-    "gini_index": 0.08,
-    "fairness_grade": "A",
-    "latency_ms": 12,
-    "mode": "fallback",
-    "error": "Database connection timeout"
-  }
+  "success": false,
+  "error": "Allocation pipeline failed",
+  "detail": "Database connection timeout",
+  "mode": "error"
 }
 ```
+> The server no longer silently falls back to a deterministic heuristic and returns `200 success:true`. Any pipeline failure returns **HTTP 503** so LoRRI clients can implement proper retry/fallback logic.
 
 **Meta fields:**
 
@@ -430,7 +423,7 @@ curl -X POST https://fairrelay-brain-gdm1.onrender.com/lorri/allocate \
 | `gini_index` | float [0–1] | Gini coefficient of workload distribution. `< 0.1` = A+, `< 0.2` = A, else B |
 | `fairness_grade` | `"A+"` \| `"A"` \| `"B"` | Human-readable fairness grade |
 | `avg_workload` | float | Mean workload score across all drivers |
-| `carbon_kg` | float | Estimated total CO₂ for this dispatch (kg) |
+| `carbon_note` | string | Pointer to `/lorri/carbon/estimate` for accurate per-shipment CO₂ (removed inline estimate) |
 | `latency_ms` | int | Total server-side processing time |
 | `mode` | `"live"` \| `"fallback"` | Live = full LangGraph pipeline; fallback = deterministic heuristic |
 
@@ -577,12 +570,12 @@ curl -X POST https://fairrelay-brain-gdm1.onrender.com/lorri/carbon/estimate \
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `shipments` | array | Yes | Array of shipment objects |
+| `shipments` | array | Yes | Array of shipment objects. **Max 100 items per request.** |
 | `shipments[].id` | string | Yes | Shipment ID |
 | `shipments[].lane` | string | Yes | Route label (e.g. "Mumbai → Pune") |
-| `shipments[].dist_km` | float | Yes | Route distance in km |
-| `shipments[].weight_kg` | float | Yes | Cargo weight kg |
-| `shipments[].max_kg` | float | Yes | Vehicle max capacity kg |
+| `shipments[].dist_km` | float | Yes | Route distance in km. **Range: 0–50,000 km.** |
+| `shipments[].weight_kg` | float | Yes | Cargo weight kg. **Range: 0–100,000 kg.** |
+| `shipments[].max_kg` | float | Yes | Vehicle max capacity kg. **Range: 0–100,000 kg.** |
 | `shipments[].truck` | string | No | Truck model label |
 | `date` | string | No | ISO date for the report |
 
@@ -1176,16 +1169,28 @@ TSP/VRP route optimization using nearest-neighbour greedy + 2-opt local search. 
   "success": true,
   "routes": [
     {
-      "id": "route_001",
-      "original_order": ["stop_001", "stop_002"],
-      "optimized_order": ["stop_002", "stop_001"],
-      "distance_before_km": 149,
-      "distance_after_km": 108,
-      "time_before_min": 198,
-      "time_after_min": 144
+      "route_id": "route_001",
+      "run_id": "r_a3f2b1c0-e29b-41d4-a716-446655440abc",
+      "before": {
+        "order": ["stop_001", "stop_002"],
+        "distance_km": 149,
+        "time_minutes": 198
+      },
+      "after": {
+        "order": ["stop_002", "stop_001"],
+        "distance_km": 108,
+        "time_minutes": 144,
+        "method": "2-opt local search"
+      },
+      "improvement": {
+        "distance_saved_km": 41,
+        "distance_saved_pct": 27.5,
+        "time_saved_min": 54
+      }
     }
   ],
   "summary": {
+    "total_routes": 1,
     "total_distance_before_km": 149,
     "total_distance_after_km": 108,
     "total_distance_saved_km": 41,
@@ -1194,10 +1199,15 @@ TSP/VRP route optimization using nearest-neighbour greedy + 2-opt local search. 
     "total_time_after_min": 144,
     "total_time_saved_min": 54,
     "total_co2_saved_kg": 8.6,
-    "optimization_methods": ["2-opt local search", "nearest-neighbour greedy"]
+    "optimization_methods": ["2-opt local search"],
+    "road_factor_used": 1.35
   }
 }
 ```
+
+> **`run_id`** — unique ID for each optimized route. Pass it to `POST /routes/feedback` after the delivery completes to submit the actual GPS distance and improve future estimates.
+>
+> **`road_factor_used`** — the current adaptive road-distance multiplier (starts at 1.35; adapts automatically after 5+ feedback entries via continuous learning).
 
 #### `POST /api/v1/routes/cluster`
 
@@ -1261,6 +1271,74 @@ Insert a new stop into an existing route at the cheapest position.
   "additional_distance_km": 13.5
 }
 ```
+
+---
+
+#### `POST /api/v1/routes/feedback`
+
+**Route continuous learning.** After a delivery is completed, submit the actual GPS-measured distance for a route. FairRelay computes the ratio `actual_km / haversine_km` and, once 5+ feedback entries are collected, adapts the road-distance multiplier used in all future optimizations.
+
+**Request:**
+```json
+{
+  "run_id": "r_a3f2b1c0-e29b-41d4-a716-446655440abc",
+  "actual_distance_km": 118.4
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `run_id` | string | Yes | The `run_id` returned by `POST /routes/optimize` |
+| `actual_distance_km` | float | Yes | GPS-measured actual distance driven (must be > 0) |
+
+**Response `200 OK`:**
+```json
+{
+  "success": true,
+  "run_id": "r_a3f2b1c0-e29b-41d4-a716-446655440abc",
+  "actual_distance_km": 118.4,
+  "updated_road_factor": 1.38,
+  "adapted": false,
+  "samples_collected": 3,
+  "samples_needed_to_adapt": 2,
+  "learning_stats": {
+    "current_road_factor": 1.38,
+    "adapted": false,
+    "completed_feedback": 3,
+    "pending_runs": 1
+  }
+}
+```
+
+**Error responses:**
+- `400` — `actual_distance_km` ≤ 0
+- `404` — `run_id` not found (route was not recorded or already expired)
+
+---
+
+#### `GET /api/v1/routes/learning-stats`
+
+Returns the current state of the route continuous learning system — the adaptive road factor, number of feedback samples collected, and whether the system has adapted from default.
+
+**Response `200 OK`:**
+```json
+{
+  "success": true,
+  "learning": {
+    "current_road_factor": 1.38,
+    "adapted": true,
+    "completed_feedback": 7,
+    "pending_runs": 2,
+    "history": [
+      { "run_id": "r_abc...", "ratio": 1.31 },
+      { "run_id": "r_def...", "ratio": 1.42 }
+    ]
+  },
+  "explanation": "Default road factor: 1.35. After 5 actual-distance feedback entries, FairRelay adapts this multiplier from real observed ratios (actual km / straight-line km). Current factor: 1.38 (adapted from 7 samples)."
+}
+```
+
+> The road factor is clamped to `[1.1, 2.0]` and cached for 60 seconds. It improves haversine → road-distance accuracy for all routes globally.
 
 ---
 
@@ -1341,7 +1419,15 @@ Driver submits feedback after completing a route.
 
 ### 3.6 Admin & Analytics
 
-All endpoints under `/api/v1/admin/` — no auth required in current build.
+**Auth note:** `GET` endpoints are public. `POST` endpoints under `/api/v1/admin/learning/` require the `x-admin-key` header matching the `ADMIN_API_KEY` environment variable. Returns `503` if `ADMIN_API_KEY` is not configured on the server; `403` if the key is wrong.
+
+```bash
+# Example
+curl -X POST https://fairrelay-brain-gdm1.onrender.com/api/v1/admin/learning/trigger \
+  -H "x-admin-key: your-admin-key" \
+  -H "Content-Type: application/json" \
+  -d '{"process_episodes": true, "select_config": true, "update_models": true}'
+```
 
 #### `GET /api/v1/admin/metrics/fairness?start_date=2026-05-01&end_date=2026-05-16`
 
@@ -1354,7 +1440,7 @@ All endpoints under `/api/v1/admin/` — no auth required in current build.
 }
 ```
 
-#### `GET /api/v1/admin/learning/status`
+#### `GET /api/v1/admin/learning/status` _(no auth)_
 
 ```json
 {
@@ -1363,9 +1449,21 @@ All endpoints under `/api/v1/admin/` — no auth required in current build.
   "driver_models_active": 8,
   "avg_prediction_mse": 0.034,
   "recent_episodes_7d": 42,
-  "total_arms": 12
+  "total_arms": 81
 }
 ```
+
+#### `POST /api/v1/admin/learning/force_config` _(requires `x-admin-key`)_
+
+Override bandit config selection with a specific fairness config — for emergency rollbacks or A/B testing.
+
+#### `POST /api/v1/admin/learning/trigger` _(requires `x-admin-key`)_
+
+Manually trigger the daily learning pipeline (process episodes, select config, update driver models).
+
+#### `POST /api/v1/admin/learning/models/{driver_id}/retrain` _(requires `x-admin-key`)_
+
+Manually trigger retraining of a specific driver's effort prediction model.
 
 #### `POST /api/v1/admin/manual_override`
 

@@ -1,0 +1,92 @@
+[
+  {
+    "run_id": "r_3a7f2b10-e29b-41d4-a716-446655440001",
+    "route_id": "route_mumbai_pune_01",
+    "timestamp": "2026-04-22T07:14:32Z",
+    "haversine_km": 82.3,
+    "estimated_km": 111.1,
+    "road_factor_used": 1.35,
+    "num_stops": 5,
+    "actual_km": 112.7
+  },
+  {
+    "run_id": "r_4b8e3c21-f30c-52e5-b827-557766551002",
+    "route_id": "route_delhi_noida_01",
+    "timestamp": "2026-04-25T09:31:18Z",
+    "haversine_km": 61.4,
+    "estimated_km": 82.9,
+    "road_factor_used": 1.35,
+    "num_stops": 4,
+    "actual_km": 85.3
+  },
+  {
+    "run_id": "r_5c9f4d32-041d-63f6-c938-668877662003",
+    "route_id": "route_hyd_kurnool_01",
+    "timestamp": "2026-04-29T11:47:55Z",
+    "haversine_km": 148.7,
+    "estimated_km": 200.7,
+    "road_factor_used": 1.35,
+    "num_stops": 8,
+    "actual_km": 209.7
+  },
+  {
+    "run_id": "r_6d0a5e43-152e-74g7-d049-779988773004",
+    "route_id": "route_bengaluru_mysuru_01",
+    "timestamp": "2026-05-03T08:22:40Z",
+    "haversine_km": 107.2,
+    "estimated_km": 144.7,
+    "road_factor_used": 1.35,
+    "num_stops": 6,
+    "actual_km": 147.9
+  },
+  {
+    "run_id": "r_7e1b6f54-263f-85h8-e150-880099884005",
+    "route_id": "route_chennai_vellore_01",
+    "timestamp": "2026-05-07T10:55:12Z",
+    "haversine_km": 93.8,
+    "estimated_km": 126.6,
+    "road_factor_used": 1.35,
+    "num_stops": 5,
+    "actual_km": 133.2
+  },
+  {
+    "run_id": "r_8f2c7g65-374g-96i9-f261-991100995006",
+    "route_id": "route_pune_nashik_01",
+    "timestamp": "2026-05-10T14:08:27Z",
+    "haversine_km": 121.6,
+    "estimated_km": 164.2,
+    "road_factor_used": 1.35,
+    "num_stops": 7,
+    "actual_km": 165.4
+  },
+  {
+    "run_id": "r_9g3d8h76-485h-07j0-g372-002211006007",
+    "route_id": "route_mumbai_thane_01",
+    "timestamp": "2026-05-13T16:33:44Z",
+    "haversine_km": 44.1,
+    "estimated_km": 59.5,
+    "road_factor_used": 1.35,
+    "num_stops": 3,
+    "actual_km": 62.6
+  },
+  {
+    "run_id": "r_ah4e9i87-596i-18k1-h483-113322117008",
+    "route_id": "route_delhi_gurgaon_01",
+    "timestamp": "2026-05-15T09:11:03Z",
+    "haversine_km": 38.7,
+    "estimated_km": 52.2,
+    "road_factor_used": 1.39,
+    "num_stops": 3,
+    "actual_km": null
+  },
+  {
+    "run_id": "r_bi5f0j98-607j-29l2-i594-224433228009",
+    "route_id": "route_bengaluru_hosur_01",
+    "timestamp": "2026-05-16T11:44:29Z",
+    "haversine_km": 52.3,
+    "estimated_km": 72.7,
+    "road_factor_used": 1.39,
+    "num_stops": 4,
+    "actual_km": null
+  }
+]

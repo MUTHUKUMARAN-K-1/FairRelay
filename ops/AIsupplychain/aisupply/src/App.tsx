@@ -22,6 +22,7 @@ import { FairDispatch } from "./pages/FairDispatch";
 import { ApiKeys } from "./pages/ApiKeys";
 import { LoadConsolidation } from "./pages/LoadConsolidation";
 import { RouteOptimization } from "./pages/RouteOptimization";
+import { InvoiceReconciliation } from "./pages/InvoiceReconciliation";
 import { useLocation } from "react-router-dom";
 
 // Protected Route Component
@@ -108,6 +109,7 @@ function DashboardLayout() {
             <Route path="/allocate-routes" element={<AllocateRoutes />} />
             <Route path="/load-consolidation" element={<LoadConsolidation />} />
             <Route path="/api-keys" element={<ApiKeys />} />
+            <Route path="/invoice" element={<InvoiceReconciliation />} />
             <Route path="*" element={<Dashboard />} />
           </Routes>
         </div>
