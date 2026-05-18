@@ -329,9 +329,9 @@ async def allocate(
         # ========== PHASE 3: FAIRNESS MANAGER AGENT ==========
         fairness_agent = FairnessManagerAgent(
             thresholds=FairnessThresholds(
-                gini_threshold=0.33,
-                stddev_threshold=25.0,
-                max_gap_threshold=25.0,
+                gini_threshold=active_config.gini_threshold if active_config else 0.33,
+                stddev_threshold=active_config.stddev_threshold if active_config else 25.0,
+                max_gap_threshold=active_config.max_gap_threshold if active_config else 25.0,
             )
         )
         
@@ -503,7 +503,8 @@ async def allocate(
         # Variables for final allocation
         final_allocation = final_plan.allocation
         final_per_driver_effort = final_plan.per_driver_effort
-        
+        resolution_result = None
+
         if counter_decisions:
             # Run Final Resolution
             resolution_agent = FinalResolutionAgent()
@@ -560,13 +561,12 @@ async def allocate(
         
         # Build liaison decisions lookup
         liaison_by_driver = {}
-        if 'negotiation_result' in dir():
-            for decision in negotiation_result.decisions:
-                liaison_by_driver[decision.driver_id] = decision
-        
+        for decision in negotiation_result.decisions:
+            liaison_by_driver[decision.driver_id] = decision
+
         # Build swaps lookup
         swapped_drivers = set()
-        if 'resolution_result' in dir() and resolution_result.swaps_applied:
+        if resolution_result is not None and resolution_result.swaps_applied:
             for swap in resolution_result.swaps_applied:
                 swapped_drivers.add(swap.driver_a)
                 swapped_drivers.add(swap.driver_b)

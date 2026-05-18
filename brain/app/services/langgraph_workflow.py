@@ -215,7 +215,7 @@ async def invoke_allocation_workflow(
     Returns:
         Final AllocationState with all agent outputs
     """
-    graph = get_allocation_graph(force_recreate=True)  # Force recreate to pick up latest nodes
+    graph = get_allocation_graph()
     
     # Build initial state
     initial_state = AllocationState(

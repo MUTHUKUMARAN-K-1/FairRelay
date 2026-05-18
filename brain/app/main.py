@@ -17,7 +17,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from starlette.responses import Response
+
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
@@ -117,7 +117,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 # CORS — allow all for demo/hackathon, restrict in production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
