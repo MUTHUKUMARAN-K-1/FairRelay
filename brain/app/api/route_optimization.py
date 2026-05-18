@@ -77,11 +77,13 @@ async def optimize_routes(request: OptimizeRequest):
     total_before_min = sum(c.before["time_minutes"] for c in comparisons)
     total_after_min = sum(c.after["time_minutes"] for c in comparisons)
     
+    from app.services.route_optimization_engine import get_road_factor
     return {
         "success": True,
         "routes": [
             {
                 "route_id": c.route_id,
+                "run_id": c.run_id,
                 "before": c.before,
                 "after": c.after,
                 "improvement": c.improvement,
@@ -99,6 +101,7 @@ async def optimize_routes(request: OptimizeRequest):
             "total_time_saved_min": round(total_before_min - total_after_min, 1),
             "total_co2_saved_kg": round(total_saved_km * 0.21, 2),
             "optimization_methods": list(set(c.after["method"] for c in comparisons)),
+            "road_factor_used": get_road_factor(),
         },
     }
 
@@ -211,4 +214,69 @@ async def dynamic_insert(
         "distance_before_km": round(before_dist, 2),
         "distance_after_km": round(after_dist, 2),
         "additional_distance_km": round(after_dist - before_dist, 2),
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+# CONTINUOUS LEARNING — Feedback & Stats
+# ═══════════════════════════════════════════════════════════════
+
+class RouteFeedbackRequest(BaseModel):
+    run_id: str
+    actual_distance_km: float
+
+
+@router.post(
+    "/feedback",
+    summary="Submit actual route distance to improve road factor",
+    description=(
+        "After a delivery is completed, submit the actual GPS-measured distance. "
+        "FairRelay computes the ratio (actual / haversine) and, once 5+ entries "
+        "are collected, adapts the road-distance multiplier used in all future "
+        "route optimizations. This closes the continuous-learning loop."
+    ),
+)
+async def submit_route_feedback(request: RouteFeedbackRequest):
+    """Record actual distance for a completed route and update the adaptive road factor."""
+    from app.services.route_optimization_engine import _perf_store
+
+    if request.actual_distance_km <= 0:
+        raise HTTPException(status_code=400, detail="actual_distance_km must be positive")
+
+    new_factor = _perf_store.record_feedback(request.run_id, request.actual_distance_km)
+    if new_factor is None:
+        raise HTTPException(status_code=404, detail=f"run_id '{request.run_id}' not found")
+
+    stats = _perf_store.learning_stats()
+    return {
+        "success": True,
+        "run_id": request.run_id,
+        "actual_distance_km": request.actual_distance_km,
+        "updated_road_factor": new_factor,
+        "adapted": stats["adapted"],
+        "samples_collected": stats["completed_feedback"],
+        "samples_needed_to_adapt": max(0, 5 - stats["completed_feedback"]),
+        "learning_stats": stats,
+    }
+
+
+@router.get(
+    "/learning-stats",
+    summary="Get route continuous learning statistics",
+    description="Returns the current adaptive road factor, number of feedback samples, and learning history.",
+)
+async def get_learning_stats():
+    """Return the current state of the route continuous learning system."""
+    from app.services.route_optimization_engine import _perf_store, ROAD_FACTOR
+    stats = _perf_store.learning_stats()
+    return {
+        "success": True,
+        "learning": stats,
+        "explanation": (
+            f"Default road factor: {ROAD_FACTOR}. "
+            f"After {5} actual-distance feedback entries, FairRelay adapts this "
+            f"multiplier from real observed ratios (actual km / straight-line km). "
+            f"Current factor: {stats['current_road_factor']} "
+            f"({'adapted from ' + str(stats['completed_feedback']) + ' samples' if stats['adapted'] else 'using default — need ' + str(max(0, 5 - stats['completed_feedback'])) + ' more feedback entries'})."
+        ),
     }
