@@ -19,9 +19,13 @@ This module is called AFTER clustering assigns packages to routes,
 to optimize the STOP ORDER within each route.
 """
 
+import json
 import math
+import threading
 import time
+import uuid
 import logging
+from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
 
@@ -36,7 +40,146 @@ FUEL_COST_PER_KM = 8.5         # ₹/km (diesel truck avg India 2026)
 TOLL_COST_PER_KM = 1.2         # ₹/km (avg toll on state highways)
 DRIVER_LABOR_PER_HOUR = 125.0  # ₹/hour (avg driver wage)
 CO2_KG_PER_KM = 0.21           # kg CO₂ per km (diesel)
-ROAD_FACTOR = 1.35             # Haversine to road distance multiplier (Indian roads)
+ROAD_FACTOR = 1.35             # Haversine to road distance multiplier (Indian roads) — default
+
+
+# ═══════════════════════════════════════════════════════════════
+# CONTINUOUS LEARNING — Route Performance Store
+# ═══════════════════════════════════════════════════════════════
+
+_STORE_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "route_performance.json"
+_MIN_SAMPLES_TO_ADAPT = 5    # adapt only after this many real feedback entries
+_MAX_HISTORY = 200           # keep last N entries
+_ROAD_FACTOR_CACHE_TTL = 60  # seconds between re-reads from disk
+
+_store_lock = threading.Lock()
+_rf_cache: float = ROAD_FACTOR
+_rf_cache_at: float = 0.0
+
+
+class RoutePerformanceStore:
+    """
+    Persists route estimation records and actual-distance feedback.
+    Each entry: { run_id, route_id, haversine_km, estimated_km,
+                  road_factor_used, num_stops, timestamp, actual_km (nullable) }
+
+    Actual distances are submitted via POST /routes/feedback after delivery.
+    Accumulated ratios (actual_km / haversine_km) drive get_road_factor().
+    """
+
+    def load(self) -> List[Dict[str, Any]]:
+        try:
+            if _STORE_PATH.exists():
+                with open(_STORE_PATH, "r", encoding="utf-8") as f:
+                    return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            pass
+        return []
+
+    def save(self, entries: List[Dict[str, Any]]) -> None:
+        _STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = _STORE_PATH.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(entries[-_MAX_HISTORY:], f, indent=2, default=str)
+        tmp.replace(_STORE_PATH)
+
+    def record_run(
+        self,
+        route_id: str,
+        haversine_km: float,
+        estimated_km: float,
+        road_factor_used: float,
+        num_stops: int,
+    ) -> str:
+        """Store a new optimization run and return its run_id."""
+        run_id = str(uuid.uuid4())
+        entry = {
+            "run_id": run_id,
+            "route_id": route_id,
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "haversine_km": round(haversine_km, 3),
+            "estimated_km": round(estimated_km, 3),
+            "road_factor_used": road_factor_used,
+            "num_stops": num_stops,
+            "actual_km": None,
+        }
+        with _store_lock:
+            entries = self.load()
+            entries.append(entry)
+            self.save(entries)
+        logger.debug(f"[RouteRL] recorded run {run_id} ({num_stops} stops, est={estimated_km:.1f}km)")
+        return run_id
+
+    def record_feedback(self, run_id: str, actual_km: float) -> Optional[float]:
+        """
+        Update a run entry with the actual observed distance.
+        Returns the newly computed adaptive road factor, or None if not found.
+        """
+        with _store_lock:
+            entries = self.load()
+            for e in entries:
+                if e["run_id"] == run_id:
+                    e["actual_km"] = round(actual_km, 3)
+                    break
+            else:
+                return None
+            self.save(entries)
+        return get_road_factor(force_refresh=True)
+
+    def learning_stats(self) -> Dict[str, Any]:
+        """Return stats useful for the dashboard / API."""
+        entries = self.load()
+        completed = [e for e in entries if e.get("actual_km") and e.get("haversine_km")]
+        pending = [e for e in entries if e.get("actual_km") is None]
+        if completed:
+            ratios = [e["actual_km"] / e["haversine_km"] for e in completed]
+            avg_ratio = round(sum(ratios) / len(ratios), 3)
+            min_ratio = round(min(ratios), 3)
+            max_ratio = round(max(ratios), 3)
+        else:
+            avg_ratio = min_ratio = max_ratio = ROAD_FACTOR
+        return {
+            "total_runs": len(entries),
+            "completed_feedback": len(completed),
+            "pending_feedback": len(pending),
+            "current_road_factor": get_road_factor(),
+            "default_road_factor": ROAD_FACTOR,
+            "avg_observed_ratio": avg_ratio,
+            "min_ratio": min_ratio,
+            "max_ratio": max_ratio,
+            "adapted": len(completed) >= _MIN_SAMPLES_TO_ADAPT,
+        }
+
+
+_perf_store = RoutePerformanceStore()
+
+
+def get_road_factor(force_refresh: bool = False) -> float:
+    """
+    Return the adaptive road factor based on historical actual vs. haversine ratios.
+    Falls back to the default ROAD_FACTOR (1.35) until MIN_SAMPLES feedback entries exist.
+    Result is cached for ROAD_FACTOR_CACHE_TTL seconds to avoid disk I/O per stop.
+    """
+    global _rf_cache, _rf_cache_at
+    if not force_refresh and (time.time() - _rf_cache_at) < _ROAD_FACTOR_CACHE_TTL:
+        return _rf_cache
+
+    try:
+        entries = _perf_store.load()
+        completed = [e for e in entries if e.get("actual_km") and e.get("haversine_km")]
+        if len(completed) < _MIN_SAMPLES_TO_ADAPT:
+            factor = ROAD_FACTOR
+        else:
+            ratios = [e["actual_km"] / e["haversine_km"] for e in completed[-50:]]
+            factor = max(1.1, min(2.0, round(sum(ratios) / len(ratios), 3)))
+            logger.info(f"[RouteRL] adaptive road_factor={factor:.3f} (from {len(completed)} samples)")
+    except Exception as exc:
+        logger.warning(f"[RouteRL] road factor read failed: {exc}, using default")
+        factor = ROAD_FACTOR
+
+    _rf_cache = factor
+    _rf_cache_at = time.time()
+    return factor
 
 # Priority penalty multiplier for late delivery of high-priority items
 PRIORITY_PENALTY = {
@@ -100,6 +243,7 @@ class RouteOptResult:
 class RouteComparison:
     """Before vs after comparison for Challenge #4."""
     route_id: str
+    run_id: str
     before: Dict[str, Any]
     after: Dict[str, Any]
     improvement: Dict[str, Any]
@@ -119,8 +263,8 @@ def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
 
 
 def road_distance_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
-    """Estimated road distance (Haversine × road factor for India)."""
-    return haversine_km(lat1, lng1, lat2, lng2) * ROAD_FACTOR
+    """Estimated road distance using adaptive road factor learned from feedback."""
+    return haversine_km(lat1, lng1, lat2, lng2) * get_road_factor()
 
 
 def compute_cost(distance_km: float, time_hours: float, vehicle: VehicleConfig = None) -> float:
@@ -621,8 +765,22 @@ def compare_routes(
         # After
         result = optimize_route(stops, depot_lat, depot_lng, v, spd)
 
+        # Record run for continuous learning (feedback via POST /routes/feedback)
+        raw_haversine = sum(
+            haversine_km(stops[i].lat, stops[i].lng, stops[i+1].lat, stops[i+1].lng)
+            for i in range(len(stops) - 1)
+        ) if len(stops) > 1 else 0.0
+        run_id = _perf_store.record_run(
+            route_id=route_id,
+            haversine_km=raw_haversine,
+            estimated_km=result.total_distance_km,
+            road_factor_used=get_road_factor(),
+            num_stops=len(stops),
+        )
+
         comparisons.append(RouteComparison(
             route_id=route_id,
+            run_id=run_id,
             before={
                 "distance_km": round(naive_dist, 2),
                 "time_minutes": round(naive_time_h * 60, 1),
