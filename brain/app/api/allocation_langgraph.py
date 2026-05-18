@@ -3,7 +3,6 @@ LangGraph-enabled Allocation API endpoint.
 Wraps the existing allocation logic with LangGraph orchestration.
 """
 
-import os
 import statistics
 import uuid
 from datetime import datetime, timedelta
@@ -364,9 +363,8 @@ async def allocate_langgraph(
             rd["id"] = str(route_models[i].id)
         
         # ========== INVOKE LANGGRAPH WORKFLOW ==========
-        if enable_gemini:
-            os.environ["ENABLE_GEMINI_EXPLAIN"] = "true"
-        
+        config_used["enable_gemini"] = enable_gemini
+
         workflow_result = await invoke_allocation_workflow(
             request_dict=request.model_dump(mode="json"),
             config_used=config_used,

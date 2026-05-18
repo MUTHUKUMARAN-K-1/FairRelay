@@ -6,8 +6,11 @@ POST /consolidate/sync      — Run consolidation (synchronous fallback)
 POST /consolidate/simulate  — Compare multiple scenarios
 """
 
+import logging
 from typing import List
 from uuid import uuid4
+
+logger = logging.getLogger("fairrelay.consolidation")
 
 from fastapi import APIRouter, HTTPException
 
@@ -67,7 +70,7 @@ async def consolidate(req: ConsolidationRequest):
         )
     except Exception as e:
         # Fallback to synchronous pipeline if LangGraph fails
-        print(f"LangGraph consolidation failed ({e}), using sync pipeline")
+        logger.error(f"LangGraph consolidation failed ({e}), using sync pipeline")
         result = run_consolidation_pipeline(shipments, trucks, options)
 
     result = await _enrich_with_llm(result)

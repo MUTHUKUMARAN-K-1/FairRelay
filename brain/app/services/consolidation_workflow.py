@@ -135,7 +135,7 @@ async def invoke_consolidation_workflow(
     thread_id: Optional[str] = None,
 ) -> dict:
     """Run the consolidation LangGraph workflow."""
-    graph = get_consolidation_graph(force_recreate=True)
+    graph = get_consolidation_graph()
 
     initial = {
         "shipments": shipments,

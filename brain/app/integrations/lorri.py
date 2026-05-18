@@ -23,12 +23,12 @@ import hashlib
 import logging
 from datetime import datetime
 from typing import Optional, Dict, Any, List
-from collections import defaultdict
+from collections import defaultdict, deque
 
 import httpx
 from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 
 logger = logging.getLogger("fairrelay.lorri")
 
@@ -38,7 +38,8 @@ router = APIRouter(tags=["LoRRI Integration"])
 
 LORRI_WEBHOOK_URL = os.getenv("LORRI_WEBHOOK_URL", "")
 LORRI_WEBHOOK_SECRET = os.getenv("LORRI_WEBHOOK_SECRET", "")
-LORRI_API_KEYS = set(filter(None, os.getenv("LORRI_API_KEYS", "fr_live_demo_key_2026").split(",")))
+_raw_keys = os.getenv("LORRI_API_KEYS", "")
+LORRI_API_KEYS = set(filter(None, _raw_keys.split(",")))
 
 # Rate limiting (in-memory, production should use Redis)
 _rate_limits: Dict[str, List[float]] = defaultdict(list)
@@ -50,6 +51,8 @@ RATE_LIMIT_WINDOW = 60  # seconds
 
 async def verify_api_key(request: Request):
     """Verify x-api-key header for LoRRI integration."""
+    if not LORRI_API_KEYS:
+        raise HTTPException(status_code=503, detail="API key authentication not configured on this server")
     api_key = request.headers.get("x-api-key") or request.query_params.get("api_key")
     if not api_key:
         raise HTTPException(status_code=401, detail="Missing x-api-key header")
@@ -142,7 +145,7 @@ class LoRRIHealthResponse(BaseModel):
 # ═══ ENDPOINTS ════════════════════════════════════════════════════════════════
 
 _start_time = time.time()
-_request_latencies: List[float] = []
+_request_latencies: deque = deque(maxlen=1000)
 
 
 @router.get("/health")
@@ -219,8 +222,6 @@ async def lorri_allocate(request: LoRRIAllocateRequest, raw_request: Request):
         
         latency_ms = int((time.time() - t0) * 1000)
         _request_latencies.append(latency_ms)
-        if len(_request_latencies) > 1000:
-            _request_latencies.pop(0)
         
         # Format response for LoRRI
         allocations = []
@@ -250,7 +251,7 @@ async def lorri_allocate(request: LoRRIAllocateRequest, raw_request: Request):
                 "gini_index": result.global_fairness.gini_index,
                 "fairness_grade": "A+" if result.global_fairness.gini_index < 0.1 else "A" if result.global_fairness.gini_index < 0.2 else "B",
                 "avg_workload": result.global_fairness.avg_workload,
-                "carbon_kg": round(sum(a.get("route_summary", {}).get("weight_kg", 0) * 0.21 for a in allocations), 1),
+                "carbon_note": "Use POST /lorri/carbon/estimate for accurate CO₂ figures",
                 "latency_ms": latency_ms,
                 "mode": "live",
                 "agents_used": ["ml_effort", "route_planner", "fairness_manager", "driver_liaison", "final_resolution", "explainability"],
@@ -277,38 +278,17 @@ async def lorri_allocate(request: LoRRIAllocateRequest, raw_request: Request):
         
     except Exception as e:
         latency_ms = int((time.time() - t0) * 1000)
-        logger.error(f"LoRRI allocation failed: {e}")
-        
-        # Fallback: simple fair allocation (deterministic)
-        sorted_drivers = sorted(drivers, key=lambda d: d.get("hours_today", 0))
-        sorted_routes = sorted(routes, key=lambda r: r.get("distance_km", 0))
-        
-        allocations = []
-        for i, driver in enumerate(sorted_drivers):
-            route = sorted_routes[i % len(sorted_routes)] if sorted_routes else {}
-            allocations.append({
-                "driver": driver.get("id"),
-                "driver_name": driver.get("name", driver.get("id")),
-                "route": route.get("id"),
-                "wellness_score": max(0, 100 - int(driver.get("hours_today", 0) * 8)),
-                "explanation": f"Fallback allocation — {driver.get('name', 'Driver')} assigned based on hours worked.",
-            })
-        
-        hours = [d.get("hours_today", 0) for d in sorted_drivers]
-        mean_h = sum(hours) / len(hours) if hours else 0
-        gini = sum(abs(h - mean_h) for h in hours) / (2 * len(hours) * mean_h) if mean_h > 0 else 0
-        
-        return {
-            "success": True,
-            "data": {"id": f"run_fallback_{int(time.time())}", "allocations": allocations},
-            "meta": {
-                "gini_index": round(gini, 3),
-                "fairness_grade": "A" if gini < 0.2 else "B",
+        logger.error(f"LoRRI allocation failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "success": False,
+                "error": "AI allocation pipeline unavailable",
+                "reason": str(e)[:200],
                 "latency_ms": latency_ms,
-                "mode": "fallback",
-                "error": str(e)[:100],
+                "retry_after": 30,
             },
-        }
+        )
 
 
 @router.post("/wellness", dependencies=[Depends(verify_api_key)])
@@ -363,6 +343,12 @@ class CarbonEstimateRequest(BaseModel):
     """Request body for the carbon intelligence agent."""
     shipments: List[CarbonShipmentInput]
     date: Optional[str] = None
+
+    @validator("shipments")
+    def limit_shipments(cls, v):
+        if len(v) > 100:
+            raise ValueError("Maximum 100 shipments per request")
+        return v
 
 
 @router.post("/carbon/estimate")
