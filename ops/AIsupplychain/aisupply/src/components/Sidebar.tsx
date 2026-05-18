@@ -1,4 +1,4 @@
-import { LayoutDashboard, BarChart3, FileSpreadsheet, LogOut, Leaf, Package, Navigation, Brain, Shield, Key, Layers, Route } from 'lucide-react';
+import { LayoutDashboard, BarChart3, FileSpreadsheet, LogOut, Leaf, Package, Navigation, Brain, Shield, Key, Layers, Route, Receipt } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { NavLink } from 'react-router-dom';
 
@@ -12,7 +12,8 @@ const navItems = [
   { icon: Layers, label: 'Load Consolidation', to: '/load-consolidation' },
   { icon: BarChart3, label: 'Analytics', to: '/analytics' },
   { icon: Leaf, label: 'Carbon Tracking', to: '/carbon-tracking' },
-  { icon: Key, label: 'API Keys', to: '/api-keys' },
+  { icon: Key,     label: 'API Keys',   to: '/api-keys' },
+  { icon: Receipt, label: 'Invoice AI', to: '/invoice'  },
 ];
 
 export function Sidebar() {

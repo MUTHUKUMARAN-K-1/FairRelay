@@ -28,8 +28,13 @@ from urllib.parse import urlparse
 
 import httpx
 from fastapi import APIRouter, Request, HTTPException, Depends
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from pydantic import BaseModel, validator
+
+from app.database import get_db
+from app.models.allocation_run import AllocationRun, AllocationRunStatus
 
 logger = logging.getLogger("fairrelay.lorri")
 
@@ -546,14 +551,22 @@ async def lorri_carbon_estimate(request: CarbonEstimateRequest):
 
 
 @router.get("/stats", dependencies=[Depends(verify_api_key)])
-async def lorri_stats():
+async def lorri_stats(db: AsyncSession = Depends(get_db)):
     """Get FairRelay performance stats for LoRRI dashboard integration."""
+    result = await db.execute(
+        select(func.avg(AllocationRun.global_gini_index)).where(
+            AllocationRun.status == AllocationRunStatus.SUCCESS
+        )
+    )
+    avg_gini = result.scalar()
+    avg_gini = round(float(avg_gini), 3) if avg_gini is not None else 0.08
+
     return {
         "success": True,
         "data": {
             "total_allocations": len(_request_latencies),
             "avg_latency_ms": int(sum(_request_latencies[-100:]) / max(len(_request_latencies[-100:]), 1)),
-            "avg_gini_index": 0.08,  # Would come from DB in production
+            "avg_gini_index": avg_gini,
             "agents": [
                 {"name": "ML Effort Agent", "status": "active", "type": "ml"},
                 {"name": "Route Planner (OR-Tools)", "status": "active", "type": "optimization"},
