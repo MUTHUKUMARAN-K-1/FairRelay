@@ -7,11 +7,24 @@ from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import os
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Security, status
+from fastapi.security import APIKeyHeader
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+
+_admin_key_header = APIKeyHeader(name="x-admin-key", auto_error=False)
+
+def _require_admin_key(key: str = Security(_admin_key_header)):
+    """Require X-Admin-Key header matching ADMIN_API_KEY env var."""
+    expected = os.getenv("ADMIN_API_KEY", "")
+    if not expected:
+        raise HTTPException(status_code=503, detail="Admin key not configured on this server")
+    if key != expected:
+        raise HTTPException(status_code=403, detail="Invalid admin key")
 from app.models import (
     LearningEpisode,
     DriverEffortModel,
@@ -147,6 +160,7 @@ async def get_episode(
     summary="Force a specific fairness config",
     description="Override bandit selection with a specific config. "
                 "Use for emergency rollbacks or testing.",
+    dependencies=[Depends(_require_admin_key)],
 )
 async def force_config(
     request: ForceConfigRequest,
@@ -201,6 +215,7 @@ async def force_config(
     summary="Manually trigger learning pipeline",
     description="Trigger the daily learning pipeline manually. "
                 "Useful for testing or forcing immediate updates.",
+    dependencies=[Depends(_require_admin_key)],
 )
 async def trigger_learning(
     request: TriggerLearningRequest,
@@ -334,6 +349,7 @@ async def get_driver_model(
     "/models/{driver_id}/retrain",
     response_model=DriverModelUpdateResponse,
     summary="Retrain a driver's model",
+    dependencies=[Depends(_require_admin_key)],
 )
 async def retrain_driver_model(
     driver_id: UUID,

@@ -362,7 +362,15 @@ class CapacityAgent:
 
         for grp in groups:
             if not pool:
-                pool = list(trucks)
+                # All trucks assigned — overflow into the least-loaded existing bin
+                if bins:
+                    target = min(bins, key=lambda b: b["usedW"])
+                    for s in grp:
+                        target["shipments"].append(s)
+                        target["usedW"] += s.get("weight", 0)
+                        target["usedV"] += s.get("volume", 0)
+                continue
+
             sorted_shipments = sorted(
                 grp, key=lambda s: s.get("weight", 0), reverse=True
             )

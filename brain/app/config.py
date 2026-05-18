@@ -55,9 +55,19 @@ class Settings(BaseSettings):
     langchain_api_key: Optional[str] = None
     langchain_project: str = "fair-dispatch-dev"
 
-    # Gemini API (optional)
-    google_api_key: Optional[str] = None
+    # AI / LLM (optional)
+    botlearn_api_key: Optional[str] = None   # botlearn.ai proxy → Gemini 2.5 Flash
+    google_api_key: Optional[str] = None     # native Google API key fallback
+    gemini_model: str = "gemini-2.5-flash"
     enable_gemini_explain: bool = False
+
+    # Admin protection
+    admin_api_key: Optional[str] = None      # required for /admin/learning POST endpoints
+
+    # LoRRI integration
+    lorri_webhook_url: str = ""
+    lorri_webhook_secret: str = ""
+    ola_maps_api_key: Optional[str] = None
 
     @property
     def is_production(self) -> bool:

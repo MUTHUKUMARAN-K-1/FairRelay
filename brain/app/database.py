@@ -7,7 +7,9 @@ or aiosqlite for local/free-tier deployment.
 import uuid
 import os
 import logging as _logging
+from urllib.parse import urlparse
 
+from fastapi import HTTPException
 from sqlalchemy import CHAR, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
@@ -62,7 +64,14 @@ settings = get_settings()
 _raw_url = settings.database_url or ""
 _db_url = _raw_url.strip()
 
-_db_logger.info(f"[DB INIT] raw_url length={len(_raw_url)}, stripped length={len(_db_url)}, starts_with={_db_url[:20]!r}")
+def _mask_url(url: str) -> str:
+    try:
+        p = urlparse(url)
+        return url.replace(p.password, "***") if p.password else url
+    except Exception:
+        return "<unparseable-url>"
+
+_db_logger.info(f"[DB INIT] url length={len(_db_url)}, set={'yes' if _db_url else 'no'}")
 
 if not _db_url:
     _db_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
@@ -76,7 +85,7 @@ else:
     elif _db_url.startswith("postgresql://"):
         _db_url = _db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
     _is_sqlite = False
-    _db_logger.info(f"[DB INIT] Using PostgreSQL: {_db_url[:50]}...")
+    _db_logger.info(f"[DB INIT] Using PostgreSQL: {_mask_url(_db_url)}")
 
 # Create async engine
 if _is_sqlite:
@@ -113,12 +122,14 @@ class Base(DeclarativeBase):
 async def get_db() -> AsyncSession:
     """
     Dependency that provides a database session.
-    Yields a session and ensures it's closed after use.
+    Endpoints are responsible for their own commit calls.
+    HTTPException is not a DB error — do not rollback on it.
     """
     async with async_session_maker() as session:
         try:
             yield session
-            await session.commit()
+        except HTTPException:
+            raise
         except Exception:
             await session.rollback()
             raise
