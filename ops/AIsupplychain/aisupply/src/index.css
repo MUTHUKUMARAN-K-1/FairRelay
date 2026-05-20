@@ -1,24 +1,52 @@
 @import "tailwindcss";
 
 @theme {
+  /* Backgrounds */
   --color-eco-dark: #0A0F1C;
   --color-eco-dark-lighter: #111827;
+
+  /* Brand */
   --color-eco-brand-orange: #EA580C;
   --color-eco-brand-orange-hover: #C2410C;
+
+  /* Text */
   --color-eco-text-primary: #F9FAFB;
   --color-eco-text-secondary: #9CA3AF;
+
+  /* Status */
   --color-eco-success: #10B981;
   --color-eco-warning: #F59E0B;
   --color-eco-error: #EF4444;
   --color-eco-info: #3B82F6;
+
+  /* AI accent — violet for AI-generated content badges */
+  --color-ai-accent: #7C3AED;
+  --color-ai-accent-light: rgba(124, 58, 237, 0.15);
+
+  /* Glass surfaces */
   --color-glass-bg: rgba(255, 255, 255, 0.05);
   --color-glass-border: rgba(255, 255, 255, 0.1);
   --color-glass-highlight: rgba(255, 255, 255, 0.15);
+
+  /* Sidebar card surfaces */
+  --color-eco-card: rgba(255, 255, 255, 0.03);
+  --color-eco-card-border: rgba(255, 255, 255, 0.07);
+  --color-eco-secondary: rgba(255, 255, 255, 0.05);
+
+  /* Typography — Fira Code for data/headings, Fira Sans for prose */
+  --font-mono: 'Fira Code', ui-monospace, 'Cascadia Code', monospace;
+  --font-sans: 'Fira Sans', ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
   body {
     @apply bg-eco-dark text-eco-text-primary overflow-x-hidden;
+    font-family: var(--font-sans);
+  }
+
+  /* Data/numeric values rendered in monospace */
+  .font-data {
+    font-family: var(--font-mono);
   }
 }
 

@@ -91,7 +91,7 @@ function DashboardLayout() {
       <Sidebar />
       <TopBar />
 
-      <main className={`ml-[240px] relative z-10 transition-all duration-300 ${location.pathname.startsWith('/allocate-routes') ? '' : 'p-8'}`}>
+      <main className={`ml-[260px] relative z-10 transition-all duration-300 ${location.pathname.startsWith('/allocate-routes') ? '' : 'p-8'}`}>
         <div className={`${location.pathname.startsWith('/allocate-routes') ? '' : 'max-w-[1600px] mx-auto'}`}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
