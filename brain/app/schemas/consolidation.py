@@ -15,7 +15,7 @@ Backward-compatible with existing 5-agent API while adding support for:
 from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Any, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # ─── Enums ────────────────────────────────────────────────────────────────────
@@ -113,11 +113,22 @@ class TruckInput(BaseModel):
 
 
 class ObjectiveWeights(BaseModel):
-    """Multi-objective optimization weights (must sum to ~1.0)."""
+    """Multi-objective optimization weights. Must sum to ~1.0 (tolerance ±0.2)."""
     cost: float = Field(default=0.30, ge=0, le=1)
     emissions: float = Field(default=0.20, ge=0, le=1)
     utilization: float = Field(default=0.30, ge=0, le=1)
     service: float = Field(default=0.20, ge=0, le=1)
+
+    @model_validator(mode="after")
+    def weights_must_sum_to_one(self) -> "ObjectiveWeights":
+        total = self.cost + self.emissions + self.utilization + self.service
+        if not (0.8 <= total <= 1.2):
+            raise ValueError(
+                f"ObjectiveWeights must sum to ~1.0, got {total:.3f} "
+                f"(cost={self.cost}, emissions={self.emissions}, "
+                f"utilization={self.utilization}, service={self.service})"
+            )
+        return self
 
 
 class ConsolidationOptions(BaseModel):

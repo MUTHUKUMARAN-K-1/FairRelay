@@ -2,7 +2,7 @@
 Agent 8: Feedback Learning Agent.
 
 Continuously improves the system from actual operations:
-  - Stores experience records
+  - Stores experience records (file-locked against concurrent writes)
   - Updates Q-table for parameter optimization
   - Detects patterns and trends
   - Recommends future parameters
@@ -10,6 +10,7 @@ Continuously improves the system from actual operations:
 
 import json
 import logging
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -17,6 +18,10 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
 logger = logging.getLogger("fairrelay.agent.feedback")
+
+# Module-level lock shared across all FeedbackStore instances
+# so that concurrent requests do not interleave reads and writes.
+_STORE_LOCK = threading.Lock()
 
 _STORE_PATH = Path(__file__).resolve().parent.parent.parent.parent / "data" / "rl_experience.json"
 _FEEDBACK_PATH = Path(__file__).resolve().parent.parent.parent.parent / "data" / "feedback_records.json"
@@ -28,6 +33,7 @@ class FeedbackStore:
         self.max_entries = max_entries
 
     def load(self) -> List[Dict]:
+        """Load all entries from disk. Caller must hold _STORE_LOCK."""
         if not self.path.exists():
             return []
         try:
@@ -38,14 +44,17 @@ class FeedbackStore:
             return []
 
     def save(self, entries: List[Dict]):
+        """Write entries to disk, capped at max_entries. Caller must hold _STORE_LOCK."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(entries[-self.max_entries:], f, indent=2, default=str)
 
     def add(self, entry: Dict):
-        entries = self.load()
-        entries.append(entry)
-        self.save(entries)
+        """Atomically append one entry using a module-level lock."""
+        with _STORE_LOCK:
+            entries = self.load()
+            entries.append(entry)
+            self.save(entries)
 
 
 class FeedbackAgent:

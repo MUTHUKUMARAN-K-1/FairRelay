@@ -52,7 +52,7 @@ class OptimizationAgent:
         elif n <= 200:
             bins, method = self._genetic_solve(groups, trucks, time_limit, w_cost, w_emit, w_util)
         else:
-            bins, method = self._alns_solve(groups, trucks, time_limit, w_cost, w_emit, w_util)
+            bins, method = self._local_search_solve(groups, trucks, time_limit, w_cost, w_emit, w_util)
 
         if not bins:
             bins, method = self._ffd_fallback(groups, trucks)
@@ -219,11 +219,16 @@ class OptimizationAgent:
             truck_bins[j]["usedV"] += all_s[i].get("volume", 0)
         return list(truck_bins.values()), "genetic_algorithm"
 
-    def _alns_solve(self, groups, trucks, time_limit, w_cost, w_emit, w_util):
-        """ALNS for large instances — uses destroy/repair with SA acceptance."""
+    def _local_search_solve(self, groups, trucks, time_limit, w_cost, w_emit, w_util):
+        """FFD + greedy 1-move local-search improvement for large instances (n > 200).
+
+        Not a full ALNS implementation — uses a simple relocate loop without
+        destroy/repair operators or a simulated-annealing temperature schedule.
+        Renamed from _alns_solve to avoid misleading maintainers.
+        """
         bins, _ = self._ffd_fallback(groups, trucks)
         if not bins:
-            return [], "alns_empty"
+            return [], "local_search_empty"
 
         # Simple local search improvement
         improved = True
@@ -254,7 +259,7 @@ class OptimizationAgent:
                     break
 
         bins = [b for b in bins if b["shipments"]]
-        return bins, "alns_local_search"
+        return bins, "ffd_local_search"
 
     @staticmethod
     def _ffd_fallback(groups, trucks):

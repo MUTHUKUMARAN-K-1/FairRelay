@@ -46,6 +46,10 @@ DEFAULT_SCENARIOS = [
 class ScenarioAgent:
     name = "ScenarioAgent"
 
+    # Hard cap on solver time inside scenarios to prevent 40s+ main-pipeline hangs
+    # (Issue #2). Main pipeline passes _skipScenarioAgent=True and never calls this.
+    SCENARIO_SOLVER_TIME_LIMIT_S = 3.0
+
     def run(
         self,
         shipments: List[Dict],
@@ -53,9 +57,11 @@ class ScenarioAgent:
         compatibility_graph: Dict,
         scenarios: Optional[List[Dict]] = None,
         options: Optional[Dict] = None,
+        custom_scenarios: Optional[List[Dict]] = None,  # Issue #5: caller-supplied
     ) -> Tuple[List[Dict], str, Dict[str, Any]]:
         t0 = datetime.utcnow()
-        scenario_list = scenarios or DEFAULT_SCENARIOS
+        # custom_scenarios (from /simulate) takes priority over `scenarios` arg
+        scenario_list = custom_scenarios or scenarios or DEFAULT_SCENARIOS
 
         results = []
         for sc in scenario_list:
@@ -94,7 +100,8 @@ class ScenarioAgent:
             "maxGroupRadiusKm": sc.get("maxGroupRadiusKm", 30),
             "timeWindowToleranceMinutes": sc.get("timeWindowToleranceMinutes", 120),
             "objectiveWeights": sc.get("objectiveWeights", {}),
-            "solverTimeLimitSeconds": 5,
+            # Issue #2: cap scenario solver to 3s to prevent 40s+ requests
+            "solverTimeLimitSeconds": self.SCENARIO_SOLVER_TIME_LIMIT_S,
             "enable3DPacking": True,
         }
 

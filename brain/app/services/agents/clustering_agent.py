@@ -21,7 +21,7 @@ from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
 from app.services.clustering import haversine_distance
-from app.services.agents.compatibility_agent import _cargo_compatibility
+from app.services.agents.cargo_compat import cargo_compatibility as _cargo_compatibility
 
 logger = logging.getLogger("fairrelay.agent.clustering")
 
@@ -88,7 +88,7 @@ class ClusteringAgent:
         )
 
         # Compute quality metrics
-        quality = self._compute_quality(groups, shipments, compatibility_graph)
+        quality = self._compute_quality(groups, shipments, compatibility_graph, trucks)
 
         duration_ms = (datetime.utcnow() - t0).total_seconds() * 1000
         log = {
@@ -379,6 +379,7 @@ class ClusteringAgent:
         groups: List[List[Dict]],
         shipments: List[Dict],
         compat_graph: Dict,
+        trucks: Optional[List[Dict]] = None,
     ) -> Dict[str, Any]:
         """Compute clustering quality metrics."""
         if not groups:
@@ -411,8 +412,16 @@ class ClusteringAgent:
 
         avg_intra = np.mean(intra_scores) * 100
 
-        # Feasibility rate (what % of groups have no constraint violations)
-        feasible_count = sum(1 for g in groups if len(g) <= 10)  # simple heuristic
+        # Feasibility rate — checks real weight/volume against the actual fleet.
+        # Falls back to a generous default when truck info is unavailable.
+        avg_cap_w = np.mean([t["maxWeight"] for t in trucks]) if trucks else 5000
+        avg_cap_v = np.mean([t["maxVolume"] for t in trucks]) if trucks else 20
+        feasible_count = 0
+        for g in groups:
+            total_w = sum(s.get("weight", 0) for s in g)
+            total_v = sum(s.get("volume", 0) for s in g)
+            if total_w <= avg_cap_w and total_v <= avg_cap_v:
+                feasible_count += 1
         feasibility = (feasible_count / len(groups)) * 100 if groups else 100
 
         return {
@@ -422,5 +431,5 @@ class ClusteringAgent:
             "groupSizeStd": round(size_std, 1),
             "totalGroups": len(groups),
             "singletonGroups": sum(1 for g in groups if len(g) == 1),
-            "avgIntraCompatibility": round(np.mean(intra_scores), 3),
+            "avgIntraCompatibility": round(float(np.mean(intra_scores)), 3),
         }
