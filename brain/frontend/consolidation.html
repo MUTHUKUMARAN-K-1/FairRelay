@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Load Consolidation | FairRelay Brain</title>
+<title>8-Agent AI Load Consolidation Engine | FairRelay Brain</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -112,6 +112,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 .pipe-icon.c3{background:linear-gradient(135deg,var(--accent),#dc2626)}
 .pipe-icon.c4{background:linear-gradient(135deg,var(--green),var(--green-d))}
 .pipe-icon.c5{background:linear-gradient(135deg,var(--cyan),#0891b2)}
+.pipe-icon.c6{background:linear-gradient(135deg,var(--pink),#be185d)}
+.pipe-icon.c7{background:linear-gradient(135deg,var(--yellow),#d97706)}
+.pipe-icon.c8{background:linear-gradient(135deg,#818cf8,#4f46e5)}
 .pipe-title{font-size:12px;font-weight:700;line-height:1.2}
 .pipe-num{font-size:9px;font-weight:700;color:var(--txt4);font-family:var(--mono)}
 .pipe-status{margin-left:auto;width:8px;height:8px;border-radius:50%;background:var(--txt4);flex-shrink:0;transition:all .3s}
@@ -294,7 +297,7 @@ pre.io-out{margin:0;padding:12px;font-family:var(--mono);font-size:10px;color:va
 <header class="header">
   <div class="logo">
     <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
-    <div class="logo-text"><h1>Fair<span>Relay</span> Brain</h1><div class="sub">AI Load Consolidation Engine</div></div>
+    <div class="logo-text"><h1>Fair<span>Relay</span> Brain</h1><div class="sub">8-Agent AI Load Consolidation Engine v2.0</div></div>
   </div>
   <nav class="nav">
     <a href="/demo/allocate">Allocate</a>
@@ -310,7 +313,7 @@ pre.io-out{margin:0;padding:12px;font-family:var(--mono);font-size:10px;color:va
 <!-- LOADING OVERLAY -->
 <div class="page-loader" id="loader">
   <div class="loader-orb"><span></span><span></span><span></span></div>
-  <div class="loader-text">Running 5-Agent Pipeline...</div>
+  <div class="loader-text">Running 8-Agent Pipeline...</div>
   <div class="loader-agent" id="loaderAgent">Initializing agents</div>
 </div>
 
@@ -322,7 +325,7 @@ pre.io-out{margin:0;padding:12px;font-family:var(--mono);font-size:10px;color:va
     <div class="controls-bar">
       <button class="btn btn-primary" id="btnRun" onclick="runPipeline()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        Run 5-Agent Consolidation
+        Run 8-Agent Consolidation
       </button>
       <button class="btn" onclick="runSimulation()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
@@ -348,32 +351,50 @@ pre.io-out{margin:0;padding:12px;font-family:var(--mono);font-size:10px;color:va
     </div>
     <div class="pipeline-track">
       <div class="pipe-node"><div class="pipe-card" id="p-geo">
-        <div class="pipe-head"><div class="pipe-icon c1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div><div><div class="pipe-title">Geographic Clustering</div><div class="pipe-num">AGENT 1</div></div><div class="pipe-status"></div></div>
-        <div class="pipe-desc">K-Means spatial clustering using Haversine distance on pickup + drop coordinates</div>
-        <div class="pipe-foot"><span>Clusters: <span class="val" id="m-geo-v">--</span></span><span class="ms" id="m-geo-ms"></span></div>
+        <div class="pipe-head"><div class="pipe-icon c1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div><div class="pipe-title">Data Validation</div><div class="pipe-num">AGENT 1</div></div><div class="pipe-status"></div></div>
+        <div class="pipe-desc">Validates coordinates, weights, time windows, normalizes data</div>
+        <div class="pipe-foot"><span>Valid: <span class="val" id="m-geo-v">--</span></span><span class="ms" id="m-geo-ms"></span></div>
       </div></div>
       <div class="pipe-arrow" id="arr1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
       <div class="pipe-node"><div class="pipe-card" id="p-time">
-        <div class="pipe-head"><div class="pipe-icon c2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div><div class="pipe-title">Time Window Filter</div><div class="pipe-num">AGENT 2</div></div><div class="pipe-status"></div></div>
-        <div class="pipe-desc">Filters clusters by delivery time overlap with configurable tolerance</div>
-        <div class="pipe-foot"><span>Groups: <span class="val" id="m-time-v">--</span></span><span class="ms" id="m-time-ms"></span></div>
+        <div class="pipe-head"><div class="pipe-icon c2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div><div class="pipe-title">Compatibility Intelligence</div><div class="pipe-num">AGENT 2</div></div><div class="pipe-status"></div></div>
+        <div class="pipe-desc">GNN-based multi-factor compatibility scoring (geo, time, cargo, route)</div>
+        <div class="pipe-foot"><span>Edges: <span class="val" id="m-time-v">--</span></span><span class="ms" id="m-time-ms"></span></div>
       </div></div>
       <div class="pipe-arrow" id="arr2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
       <div class="pipe-node"><div class="pipe-card" id="p-cap">
-        <div class="pipe-head"><div class="pipe-icon c3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div><div><div class="pipe-title">Capacity Optimization</div><div class="pipe-num">AGENT 3</div></div><div class="pipe-status"></div></div>
-        <div class="pipe-desc">First-Fit-Decreasing bin-packing into available truck fleet by weight + volume</div>
-        <div class="pipe-foot"><span>Bins: <span class="val" id="m-cap-v">--</span></span><span class="ms" id="m-cap-ms"></span></div>
+        <div class="pipe-head"><div class="pipe-icon c3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div><div><div class="pipe-title">Constraint-Aware Clustering</div><div class="pipe-num">AGENT 3</div></div><div class="pipe-status"></div></div>
+        <div class="pipe-desc">KMeans + constraint enforcement (capacity, cargo, radius splits/merges)</div>
+        <div class="pipe-foot"><span>Groups: <span class="val" id="m-cap-v">--</span></span><span class="ms" id="m-cap-ms"></span></div>
       </div></div>
       <div class="pipe-arrow" id="arr3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
       <div class="pipe-node"><div class="pipe-card" id="p-score">
-        <div class="pipe-head"><div class="pipe-icon c4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div><div><div class="pipe-title">Scoring & Confidence</div><div class="pipe-num">AGENT 4</div></div><div class="pipe-status"></div></div>
-        <div class="pipe-desc">Computes per-group AI confidence and global optimization score (A+ grading)</div>
-        <div class="pipe-foot"><span>Score: <span class="val" id="m-score-v">--</span></span><span class="ms" id="m-score-ms"></span></div>
+        <div class="pipe-head"><div class="pipe-icon c4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div><div><div class="pipe-title">Hybrid Optimization</div><div class="pipe-num">AGENT 4</div></div><div class="pipe-status"></div></div>
+        <div class="pipe-desc">CP-SAT / Genetic / ALNS multi-objective optimization (cost, CO₂, utilization)</div>
+        <div class="pipe-foot"><span>Bins: <span class="val" id="m-score-v">--</span></span><span class="ms" id="m-score-ms"></span></div>
       </div></div>
       <div class="pipe-arrow" id="arr4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+      <div class="pipe-node"><div class="pipe-card" id="p-pack">
+        <div class="pipe-head"><div class="pipe-icon c5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div><div><div class="pipe-title">3D Packing</div><div class="pipe-num">AGENT 5</div></div><div class="pipe-status"></div></div>
+        <div class="pipe-desc">3D bin packing, loading sequence, stacking validation</div>
+        <div class="pipe-foot"><span>Feasible: <span class="val" id="m-pack-v">--</span></span><span class="ms" id="m-pack-ms"></span></div>
+      </div></div>
+      <div class="pipe-arrow" id="arr5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+      <div class="pipe-node"><div class="pipe-card" id="p-scenario">
+        <div class="pipe-head"><div class="pipe-icon c6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div><div><div class="pipe-title">Scenario Simulation</div><div class="pipe-num">AGENT 6</div></div><div class="pipe-status"></div></div>
+        <div class="pipe-desc">Tight / Balanced / Aggressive multi-scenario comparison</div>
+        <div class="pipe-foot"><span>Best: <span class="val" id="m-scenario-v">--</span></span><span class="ms" id="m-scenario-ms"></span></div>
+      </div></div>
+      <div class="pipe-arrow" id="arr6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+      <div class="pipe-node"><div class="pipe-card" id="p-explain">
+        <div class="pipe-head"><div class="pipe-icon c7"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div><div><div class="pipe-title">Explainability</div><div class="pipe-num">AGENT 7</div></div><div class="pipe-status"></div></div>
+        <div class="pipe-desc">Why grouped, rejected, assigned — natural language explanations</div>
+        <div class="pipe-foot"><span>Reasons: <span class="val" id="m-explain-v">--</span></span><span class="ms" id="m-explain-ms"></span></div>
+      </div></div>
+      <div class="pipe-arrow" id="arr7"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
       <div class="pipe-node"><div class="pipe-card" id="p-learn">
-        <div class="pipe-head"><div class="pipe-icon c5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><div><div class="pipe-title">Continuous Learning</div><div class="pipe-num">AGENT 5</div></div><div class="pipe-status"></div></div>
-        <div class="pipe-desc">Pattern detection, corridor analysis, actionable optimization insights</div>
+        <div class="pipe-head"><div class="pipe-icon c8"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><div><div class="pipe-title">Feedback Learning</div><div class="pipe-num">AGENT 8</div></div><div class="pipe-status"></div></div>
+        <div class="pipe-desc">Q-learning, trend analysis, parameter optimization</div>
         <div class="pipe-foot"><span>Insights: <span class="val" id="m-learn-v">--</span></span><span class="ms" id="m-learn-ms"></span></div>
       </div></div>
     </div>
@@ -511,9 +532,9 @@ document.getElementById('reqJson').value = JSON.stringify(DEFAULT_REQ, null, 2);
 // ═══════════════════════════════════════════════════════════════════════════════
 // PIPELINE
 // ═══════════════════════════════════════════════════════════════════════════════
-const PIPES = ['geo','time','cap','score','learn'];
-const PIPE_LABELS = ['GeoClusteringAgent','TimeWindowAgent','CapacityOptimizationAgent','ScoringConfidenceAgent','ContinuousLearningAgent'];
-const PIPE_DELAYS = [500,400,600,500,350];
+const PIPES = ['geo','time','cap','score','pack','scenario','explain','learn'];
+const PIPE_LABELS = ['ValidationAgent','CompatibilityAgent','ClusteringAgent','OptimizationAgent','PackingAgent','ScenarioAgent','ExplainabilityAgent','FeedbackAgent'];
+const PIPE_DELAYS = [300,400,500,600,400,500,300,250];
 
 function setPipe(id, state) {
   document.getElementById('p-'+id).className = 'pipe-card ' + state;
@@ -539,8 +560,8 @@ async function runPipeline() {
   document.getElementById('reqJson').value = JSON.stringify(body, null, 2);
 
   // Reset
-  PIPES.forEach(p => { setPipe(p,''); document.getElementById('m-'+p+'-v').textContent='--'; document.getElementById('m-'+p+'-ms').textContent=''; });
-  [1,2,3,4].forEach(n => setArrow(n, false));
+  PIPES.forEach(p => { setPipe(p,''); var ve=document.getElementById('m-'+p+'-v'); if(ve)ve.textContent='--'; var me=document.getElementById('m-'+p+'-ms'); if(me)me.textContent=''; });
+  [1,2,3,4,5,6,7].forEach(n => setArrow(n, false));
   document.getElementById('secKpi').style.display='none';
   document.getElementById('secMap').style.display='none';
   document.getElementById('secCharts').style.display='none';
@@ -554,8 +575,8 @@ async function runPipeline() {
   for (let i = 0; i < PIPES.length; i++) {
     setPipe(PIPES[i], 'running');
     if (i > 0) setArrow(i, true);
-    document.getElementById('loaderAgent').textContent = `Agent ${i+1}/5: ${PIPE_LABELS[i]}`;
-    setBadge('processing', `Agent ${i+1}/5`);
+    document.getElementById('loaderAgent').textContent = `Agent ${i+1}/8: ${PIPE_LABELS[i]}`;
+    setBadge('processing', `Agent ${i+1}/8`);
     await sleep(PIPE_DELAYS[i]);
   }
 
@@ -566,7 +587,7 @@ async function runPipeline() {
     pipelineData = data;
 
     PIPES.forEach(p => setPipe(p,'done'));
-    [1,2,3,4].forEach(n => setArrow(n, true));
+    [1,2,3,4,5,6,7].forEach(n => setArrow(n, true));
     setBadge('','Completed');
 
     fillAgentMetas(data);
@@ -604,12 +625,16 @@ async function runPipeline() {
 // ═══════════════════════════════════════════════════════════════════════════════
 function fillAgentMetas(data) {
   if (!data.agentSteps) return;
+  function setM(id, val, dur) { var e=document.getElementById(id); if(e) e.textContent=val; var m=document.getElementById(id.replace('-v','-ms')); if(m) m.textContent=ms(dur); }
   data.agentSteps.forEach(s => {
-    if (s.agent==='GeoClusteringAgent') { document.getElementById('m-geo-v').textContent=s.clusters_formed; document.getElementById('m-geo-ms').textContent=ms(s.duration_ms); }
-    if (s.agent==='TimeWindowAgent') { document.getElementById('m-time-v').textContent=s.output_groups; document.getElementById('m-time-ms').textContent=ms(s.duration_ms); }
-    if (s.agent==='CapacityOptimizationAgent') { document.getElementById('m-cap-v').textContent=s.bins_packed; document.getElementById('m-cap-ms').textContent=ms(s.duration_ms); }
-    if (s.agent==='ScoringConfidenceAgent') { document.getElementById('m-score-v').textContent=s.optimization_score+'/100'; document.getElementById('m-score-ms').textContent=ms(s.duration_ms); }
-    if (s.agent==='ContinuousLearningAgent') { document.getElementById('m-learn-v').textContent=s.insights_generated; document.getElementById('m-learn-ms').textContent=ms(s.duration_ms); }
+    if (s.agent==='ValidationAgent') { setM('m-geo-v', s.valid_shipments+'/'+s.input_shipments, s.duration_ms); }
+    if (s.agent==='CompatibilityAgent') { setM('m-time-v', s.edges_computed+' edges', s.duration_ms); }
+    if (s.agent==='ClusteringAgent') { setM('m-cap-v', s.groups_formed+' groups', s.duration_ms); }
+    if (s.agent==='OptimizationAgent') { setM('m-score-v', s.bins_packed+' bins', s.duration_ms); }
+    if (s.agent==='PackingAgent') { setM('m-pack-v', s.feasible+'/'+s.bins_checked, s.duration_ms); }
+    if (s.agent==='ScenarioAgent') { setM('m-scenario-v', s.recommendation||'—', s.duration_ms); }
+    if (s.agent==='ExplainabilityAgent') { setM('m-explain-v', s.explanations_generated, s.duration_ms); }
+    if (s.agent==='FeedbackAgent') { setM('m-learn-v', s.insights_generated, s.duration_ms); }
   });
 }
 
