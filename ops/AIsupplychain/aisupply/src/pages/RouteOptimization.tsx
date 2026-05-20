@@ -600,25 +600,29 @@ export function RouteOptimization() {
     setInsertStatus('inserting');
     setInsertResult(null);
 
-    const baseStops = (insertResult?.resequenced_stops ?? routeResult.after.map((id: string) => ({ id })));
-    const existingStops = baseStops.map((s: { id: string }) => {
-      const stop = MUMBAI_STOPS.find(m => m.id === s.id);
-      return stop ? { id: stop.id, lat: stop.lat, lng: stop.lng, name: stop.name }
-                  : { id: s.id, lat: URGENT_STOP.lat, lng: URGENT_STOP.lng, name: URGENT_STOP.name };
-    });
+    // Use current resequenced order if we've already inserted once, else use optimized route
+    const currentIds: string[] = insertResult?.new_order ?? routeResult.after;
+    const routeStops = currentIds
+      .filter((id: string) => id !== URGENT_STOP.id)
+      .map((id: string) => {
+        const stop = MUMBAI_STOPS.find(m => m.id === id);
+        return stop
+          ? { id: stop.id, latitude: stop.lat, longitude: stop.lng }
+          : { id, latitude: URGENT_STOP.lat, longitude: URGENT_STOP.lng };
+      });
 
     const payload = {
-      driver_id: 'demo-driver-01',
-      existing_route_stops: existingStops,
-      new_stop: URGENT_STOP,
-      priority: insertPriority,
+      route_stops: routeStops,
+      new_stop: { id: URGENT_STOP.id, latitude: URGENT_STOP.lat, longitude: URGENT_STOP.lng },
+      warehouse_lat: WAREHOUSE.lat,
+      warehouse_lng: WAREHOUSE.lng,
     };
 
     let result: any = null;
 
     // Primary: brain directly
     try {
-      const res = await fetch(`${BRAIN_URL}/routes/dynamic-insert`, {
+      const res = await fetch(`${BRAIN_URL}/api/v1/routes/dynamic-insert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -637,10 +641,9 @@ export function RouteOptimization() {
 
     // Client-side cheapest insertion if both APIs are unreachable
     if (!result) {
-      const currentIds: string[] = baseStops.map((s: { id: string }) => s.id);
-      const stopCoords = currentIds.map(id => {
-        if (id === URGENT_STOP.id) return URGENT_STOP;
-        return MUMBAI_STOPS.find(s => s.id === id) || URGENT_STOP;
+      const stopCoords = routeStops.map(s => {
+        const stop = MUMBAI_STOPS.find(m => m.id === s.id);
+        return stop ? { id: s.id, lat: stop.lat, lng: stop.lng } : { id: s.id, lat: s.latitude, lng: s.longitude };
       });
       let best = { pos: 1, cost: Infinity };
       for (let i = 0; i < stopCoords.length - 1; i++) {
@@ -651,15 +654,15 @@ export function RouteOptimization() {
                      - haversine(prev.lat, prev.lng, next.lat, next.lng);
         if (detour < best.cost) best = { pos: i + 1, cost: detour };
       }
-      const resequenced = [
-        ...currentIds.slice(0, best.pos),
+      const newOrder = [
+        ...routeStops.slice(0, best.pos).map(s => s.id),
         URGENT_STOP.id,
-        ...currentIds.slice(best.pos),
+        ...routeStops.slice(best.pos).map(s => s.id),
       ];
       result = {
-        resequenced_stops: resequenced.map(id => ({ id })),
+        new_order: newOrder,
         insertion_position: best.pos,
-        added_km: +best.cost.toFixed(1),
+        additional_distance_km: +best.cost.toFixed(1),
         source: 'local',
       };
       showToast('Brain Offline', 'Used client-side cheapest insertion fallback', 'info');
@@ -1380,28 +1383,28 @@ export function RouteOptimization() {
                         <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                         <div className="flex-1">
                           <p className="text-xs font-semibold text-white">
-                            Inserted at position {insertResult.insertion_position + 1} — +{insertResult.added_km} km added
+                            Inserted at position {insertResult.insertion_position + 1} — +{insertResult.additional_distance_km} km added
                           </p>
                           <p className="text-[10px] text-gray-400">
-                            Source: {insertResult.source === 'local' ? 'client-side cheapest insertion' : 'brain /routes/dynamic-insert'}
+                            Source: {insertResult.source === 'local' ? 'client-side cheapest insertion' : 'brain /api/v1/routes/dynamic-insert'}
                           </p>
                         </div>
-                        <span className="text-xs font-bold text-purple-400">+{insertResult.added_km} km</span>
+                        <span className="text-xs font-bold text-purple-400">+{insertResult.additional_distance_km} km</span>
                       </div>
 
                       {/* Resequenced stops */}
                       <div>
                         <div className="text-[9px] text-purple-400 font-bold uppercase mb-2">Resequenced Route</div>
                         <div className="flex flex-wrap gap-1">
-                          {(insertResult.resequenced_stops || []).map((s: { id: string }, i: number) => {
-                            const isUrgent = s.id === URGENT_STOP.id;
-                            const stop = MUMBAI_STOPS.find(m => m.id === s.id);
+                          {(insertResult.new_order || []).map((id: string, i: number) => {
+                            const isUrgent = id === URGENT_STOP.id;
+                            const stop = MUMBAI_STOPS.find(m => m.id === id);
                             return (
-                              <div key={`${s.id}-${i}`} className="flex items-center gap-0.5">
+                              <div key={`${id}-${i}`} className="flex items-center gap-0.5">
                                 <span className={`text-[9px] px-1.5 py-0.5 rounded border font-mono ${isUrgent ? 'bg-purple-500/20 border-purple-500/40 text-purple-300 font-bold' : 'bg-white/4 border-white/10 text-gray-400'}`}>
-                                  {isUrgent ? '⚡' : ''}{i + 1}. {isUrgent ? 'Colaba' : (stop?.name.split(' ')[0] || s.id)}
+                                  {isUrgent ? '⚡' : ''}{i + 1}. {isUrgent ? 'Colaba' : (stop?.name.split(' ')[0] || id)}
                                 </span>
-                                {i < (insertResult.resequenced_stops.length - 1) && <span className="text-gray-700 text-[8px]">›</span>}
+                                {i < (insertResult.new_order.length - 1) && <span className="text-gray-700 text-[8px]">›</span>}
                               </div>
                             );
                           })}

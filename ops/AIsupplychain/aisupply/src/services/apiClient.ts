@@ -362,10 +362,10 @@ export const getConsolidationDemo = async () => {
 
 // ====== Dynamic Route Insertion ======
 export const dynamicInsertStop = async (payload: {
-  driver_id: string;
-  existing_route_stops: { id: string; lat: number; lng: number; name: string }[];
-  new_stop: { id: string; lat: number; lng: number; name: string };
-  priority: "HIGH" | "MEDIUM" | "LOW";
+  route_stops: { id: string; latitude: number; longitude: number }[];
+  new_stop: { id: string; latitude: number; longitude: number };
+  warehouse_lat: number;
+  warehouse_lng: number;
 }) => {
   const response = await apiClient.post("/routes/dynamic-insert", payload);
   return response.data;
