@@ -173,7 +173,7 @@ POST https://fairrelay-brain-gdm1.onrender.com/lorri/carbon/estimate
    - [Shipments](#43-shipments)
    - [Deliveries](#44-deliveries)
    - [Wellness](#45-wellness)
-   - [Consolidation (Proxy)](#46-consolidation-proxy)
+   - [Consolidation & Route Proxy](#46-consolidation-proxy)
    - [V1 API Gateway](#47-v1-api-gateway)
    - [Absorption & Synergy](#48-absorption--synergy)
    - [Virtual Hubs & E-Way Bills](#49-virtual-hubs--e-way-bills)
@@ -1830,6 +1830,30 @@ Proxies to `https://fairrelay-brain-gdm1.onrender.com/api/v1/consolidate` with l
 #### `POST /api/consolidation/simulate`
 Proxies to Brain `/api/v1/consolidate/simulate`.
 
+#### `POST /api/routes/dynamic-insert`
+Proxies to Brain `POST /api/v1/routes/dynamic-insert`. Insert a new stop into an existing route at the cheapest position. Full request/response schema in [Section 3.3](#33-route-optimization).
+
+```json
+// Request
+{
+  "route_stops": [
+    { "id": "s1", "latitude": 19.076, "longitude": 72.877 },
+    { "id": "s2", "latitude": 18.520, "longitude": 73.856 }
+  ],
+  "new_stop": { "id": "new_s", "latitude": 18.990, "longitude": 73.120 },
+  "warehouse_lat": 19.076,
+  "warehouse_lng": 72.877
+}
+
+// Response 200
+{
+  "success": true,
+  "new_order": ["s1", "new_s", "s2"],
+  "insertion_position": 1,
+  "additional_distance_km": 13.5
+}
+```
+
 #### `GET /api/consolidation/history`
 ```json
 // Response 200
@@ -2059,12 +2083,13 @@ Absorption = peer-to-peer truck handover when a driver cannot complete a deliver
 
 > **Important:** The `api_key` value is shown only once at creation. Store it securely.
 
-#### `GET /api/keys?userId=usr_001`
+#### `GET /api/keys`
+**Auth:** `Authorization: Bearer <token>`
 ```json
 // Response 200
 {
   "keys": [
-    { "id": "key_001", "name": "LoRRI Production Key", "last_used": "2026-05-16T08:30:00Z", "scopes": ["allocate"] }
+    { "id": "key_001", "name": "LoRRI Production Key", "last_used": "2026-05-16T08:30:00Z", "active": true }
   ]
 }
 ```
@@ -2117,4 +2142,4 @@ Rate limit exceeded returns `429` with header `Retry-After: 60`.
 
 ---
 
-*Generated: 2026-05-20 · FairRelay v1.0 · Brain: `fairrelay-brain-gdm1.onrender.com` · Backend: `fairrelay-backend.onrender.com` · CarbonIntelligenceAgent/2.0*
+*Generated: 2026-05-21 · FairRelay v1.0 · Brain: `fairrelay-brain-gdm1.onrender.com` · Backend: `fairrelay-backend.onrender.com` · CarbonIntelligenceAgent/2.0*
