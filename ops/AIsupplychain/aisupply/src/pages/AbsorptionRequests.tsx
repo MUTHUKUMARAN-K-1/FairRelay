@@ -77,7 +77,6 @@ export function AbsorptionRequests() {
 
   const handleStatusUpdate = async (action: "APPROVED" | "REJECTED") => {
     if (!activeRequest) return;
-    const newStatus = action === "APPROVED" ? "COMPLETED" : "PENDING";
     try {
       await updateRequestStatus(activeRequest.id, action);
     } catch {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, ReferenceLine } from 'recharts';
-import { TrendingUp, TrendingDown, Users, Truck, DollarSign, BarChart2, Award, Leaf, BarChart3, Brain, Shield, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, Truck, DollarSign, BarChart2, Award, Leaf, BarChart3, Brain, Shield } from 'lucide-react';
 
 const volumeData = [
   { name: 'Aug', value: 280, revenue: 120000 },
