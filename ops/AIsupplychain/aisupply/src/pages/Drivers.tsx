@@ -25,7 +25,7 @@ export function Drivers() {
     const [isPanelOpen, setIsPanelOpen] = useState(false);
     const [isAddDriverModalOpen, setIsAddDriverModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [, setError] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
     // Close menu when clicking outside
