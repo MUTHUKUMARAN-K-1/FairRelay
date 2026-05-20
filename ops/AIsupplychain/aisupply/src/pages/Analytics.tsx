@@ -192,29 +192,31 @@ export function Analytics() {
         <div className="bg-eco-card rounded-xl border border-eco-card-border p-6 h-[320px] flex flex-col">
           <h3 className="text-white font-semibold mb-1">Delivery Performance</h3>
           <p className="text-xs text-gray-500 mb-4">On-time delivery rate by status</p>
-          <div className="flex-1 flex items-center relative">
-            <ResponsiveContainer width="60%" height="100%">
-              <PieChart>
-                <Pie data={pieData} innerRadius={55} outerRadius={75} paddingAngle={4} dataKey="value" startAngle={90} endAngle={450}>
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ backgroundColor: '#0f1117', borderColor: '#1e2438', color: '#fff', borderRadius: 8 }} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute left-[15%] top-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none">
-              <span className="text-3xl font-bold text-white">78%</span>
-              <span className="text-xs text-gray-400">On Time</span>
+          <div className="flex-1 flex items-center gap-6">
+            {/* Chart + centered label — label is relative to this wrapper, not the row */}
+            <div className="relative w-44 h-44 flex-shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieData} innerRadius={52} outerRadius={72} paddingAngle={3} dataKey="value" startAngle={90} endAngle={450}>
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ backgroundColor: '#0f1117', borderColor: '#1e2438', color: '#fff', borderRadius: 8 }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-2xl font-bold font-data text-white leading-none">78%</span>
+                <span className="text-xs text-gray-400 mt-1">On Time</span>
+              </div>
             </div>
-            <div className="flex-1 space-y-3 pl-4">
+            {/* Legend */}
+            <div className="flex-1 space-y-4">
               {pieData.map(d => (
-                <div key={d.name} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
-                    <span className="text-xs text-gray-400">{d.name}</span>
-                  </div>
-                  <span className="text-xs font-bold text-white">{d.value}%</span>
+                <div key={d.name} className="flex items-center gap-3">
+                  <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
+                  <span className="text-sm text-gray-300 flex-1">{d.name}</span>
+                  <span className="text-sm font-bold font-data text-white">{d.value}%</span>
                 </div>
               ))}
             </div>
