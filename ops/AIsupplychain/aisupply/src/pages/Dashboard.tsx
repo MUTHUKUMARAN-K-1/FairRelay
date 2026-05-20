@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { FileText, Box, Truck, MapPin, Star, ArrowUpRight, TrendingUp, TrendingDown, AlertCircle, Brain, Zap, RefreshCw } from 'lucide-react';
+import { FileText, Box, Truck, MapPin, Star, ArrowUpRight, TrendingUp, TrendingDown, AlertCircle, Brain, Zap, RefreshCw, BarChart3, Leaf, Shield, Layers, Route } from 'lucide-react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import { Link } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
@@ -146,8 +146,22 @@ export function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+      <div className="space-y-6">
+        {/* Skeleton banner */}
+        <div className="h-24 bg-white/3 rounded-xl border border-white/5 animate-pulse" />
+        {/* Skeleton strip */}
+        <div className="flex gap-4">
+          {[1,2,3,4].map(i => <div key={i} className="flex-1 h-16 bg-white/3 rounded-xl border border-white/5 animate-pulse" />)}
+        </div>
+        {/* Skeleton stat cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1,2,3,4].map(i => <div key={i} className="h-32 bg-white/3 rounded-xl border border-white/5 animate-pulse" />)}
+        </div>
+        {/* Skeleton chart row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 h-[340px] bg-white/3 rounded-xl border border-white/5 animate-pulse" />
+          <div className="h-[340px] bg-white/3 rounded-xl border border-white/5 animate-pulse" />
+        </div>
       </div>
     );
   }
@@ -177,50 +191,56 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* FairRelay AI Dispatch Banner */}
+      {/* AI Status Bar */}
       <div className="bg-gradient-to-r from-orange-900/40 via-amber-900/30 to-orange-900/40 rounded-xl border border-orange-500/20 p-5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-orange-500/10 rounded-xl border border-orange-500/30">
               <Brain className="w-7 h-7 text-orange-400" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-white">FairRelay AI Dispatch Engine</h2>
-              <p className="text-sm text-eco-text-secondary">8-agent LangGraph pipeline • Fairness-aware routing • Wellness-first dispatch</p>
+              <p className="text-sm text-eco-text-secondary">8-agent LangGraph pipeline · Fairness-aware routing · Wellness-first dispatch</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <div className={`px-3 py-1.5 rounded-lg border text-xs font-medium flex items-center gap-1.5 ${
               brainStatus === 'connected'
                 ? 'bg-emerald-400/10 border-emerald-400/30 text-emerald-400'
                 : 'bg-amber-400/10 border-amber-400/30 text-amber-400'
             }`}>
-              <div className={`w-2 h-2 rounded-full animate-pulse ${brainStatus === 'connected' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-              {brainStatus === 'connected' ? 'AI Brain Online' : isDemo ? 'Demo Mode' : 'AI Offline'}
+              <span className={`w-2 h-2 rounded-full animate-pulse ${brainStatus === 'connected' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              {brainStatus === 'connected' ? 'Brain Online' : isDemo ? 'Demo Mode' : 'Brain Offline'}
             </div>
+            <Link to="/load-consolidation" className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/8 text-gray-300 text-xs font-medium flex items-center gap-1.5 transition-all">
+              <Layers className="w-3.5 h-3.5 text-violet-400" /> Consolidate
+            </Link>
+            <Link to="/route-optimization" className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/8 text-gray-300 text-xs font-medium flex items-center gap-1.5 transition-all">
+              <Route className="w-3.5 h-3.5 text-blue-400" /> Optimize
+            </Link>
             <Link
               to="/fair-dispatch"
               className="bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 shadow-lg shadow-orange-600/20 transition-all"
             >
-              <Zap className="w-4 h-4" /> Run Fair Allocation
+              <Zap className="w-4 h-4" /> Run Fair Dispatch
             </Link>
           </div>
         </div>
       </div>
 
-      {/* AI Savings Banner */}
-      <div className="flex flex-wrap gap-4">
+      {/* AI Intelligence Strip */}
+      <div className="flex flex-wrap gap-3">
         {[
-          { icon: '⚖️', label: 'Gini Today', value: '0.12', sub: 'Excellent fairness', color: 'text-emerald-400' },
-          { icon: '🌿', label: 'CO₂ Saved', value: '14.2kg', sub: 'This run', color: 'text-green-400' },
-          { icon: '🤖', label: 'AI Dispatches', value: stats?.dispatchRuns || '48', sub: 'Today', color: 'text-orange-400' },
-          { icon: '⏱', label: 'AI saved', value: '3.2 hrs', sub: 'vs manual dispatch', color: 'text-blue-400' },
+          { Icon: BarChart3, label: 'Gini Today', value: '0.12', sub: 'Excellent fairness', color: 'text-emerald-400', bg: 'border-emerald-500/15 hover:border-emerald-500/30' },
+          { Icon: Leaf,      label: 'CO₂ Saved',  value: '14.2 kg', sub: 'This run', color: 'text-green-400', bg: 'border-green-500/15 hover:border-green-500/30' },
+          { Icon: Brain,     label: 'AI Dispatches', value: String(stats?.dispatchRuns || '48'), sub: 'Today', color: 'text-orange-400', bg: 'border-orange-500/15 hover:border-orange-500/30' },
+          { Icon: Shield,    label: 'Time Saved', value: '3.2 hrs', sub: 'vs manual dispatch', color: 'text-blue-400', bg: 'border-blue-500/15 hover:border-blue-500/30' },
         ].map((item, i) => (
-          <div key={i} className="flex items-center gap-3 px-4 py-2.5 bg-white/3 border border-white/8 rounded-xl hover:border-orange-500/20 transition-all">
-            <span className="text-xl">{item.icon}</span>
+          <div key={i} className={`flex items-center gap-3 px-4 py-2.5 bg-white/3 border ${item.bg} rounded-xl transition-all`}>
+            <item.Icon className={`w-5 h-5 flex-shrink-0 ${item.color}`} />
             <div>
-              <p className={`text-lg font-bold ${item.color}`}>{item.value}</p>
-              <p className="text-xs text-gray-500">{item.label} · {item.sub}</p>
+              <p className={`text-lg font-bold font-data leading-none ${item.color}`}>{item.value}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{item.label} · {item.sub}</p>
             </div>
           </div>
         ))}
@@ -359,7 +379,7 @@ function StatWidget({ title, value, change, positive, icon: Icon, iconColor, ico
     ? value
     : animated.toLocaleString();
   return (
-    <div className="bg-eco-card rounded-xl p-6 border border-eco-card-border flex items-start justify-between shadow-lg hover:shadow-xl transition-shadow cursor-default hover:border-eco-brand-orange/20">
+    <div className="bg-eco-card rounded-xl p-6 border border-eco-card-border flex items-start justify-between shadow-lg hover-lift cursor-default hover:border-eco-brand-orange/20">
       <div>
         <div className="text-eco-text-secondary text-sm font-medium mb-1">{title}</div>
         <div className="text-3xl font-bold text-white mb-1">{displayValue}</div>

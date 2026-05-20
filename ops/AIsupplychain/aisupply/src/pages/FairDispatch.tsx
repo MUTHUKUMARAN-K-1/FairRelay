@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Brain, Zap, Users, Package, TrendingUp, Play, Loader2, CheckCircle, AlertTriangle, Shield, Activity, BarChart3, Download, Moon, Leaf, Code2, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 import { runFairAllocation, getDispatchHealth, checkDriverWellness } from '../services/apiClient';
 import { CognitivePanel } from '../components/CognitivePanel';
+import { AIInsightCard } from '../components/AIInsightCard';
 
 interface AgentEvent {
   agent: string;
@@ -638,6 +639,24 @@ export function FairDispatch() {
               <div><p className="text-2xl font-bold text-emerald-400">86%</p><p className="text-xs text-gray-400">Gini reduction</p></div>
             </div>
           </div>
+
+          {/* AI Explainability Insight */}
+          <AIInsightCard title="Allocation Rationale — AI Explainer" confidence={94}>
+            <div className="space-y-2 text-sm text-gray-300">
+              <p>
+                <span className="text-white font-semibold">Gini reduction from 0.85 → 0.12</span> was achieved by redistributing workload from Rajesh Kumar (who would have received 5 of 8 packages in a naive dispatch) to underutilised drivers Priya Sharma and Sunita Devi.
+              </p>
+              <p>
+                <span className="text-emerald-400 font-semibold">EV priority:</span> Priya Sharma (EV) was assigned the Koramangala and MG Road deliveries — both in BBMP's low-emission zone — eliminating 3.2 kg CO₂ that a diesel vehicle would have emitted.
+              </p>
+              <p>
+                <span className="text-amber-400 font-semibold">Wellness guard:</span> Vikram Singh (Cognitive Load Index 81, OVERLOADED) was assigned only 1 lightweight package. Amit Patel's 9-hour day triggered a difficulty cap — assigned EASY routes only.
+              </p>
+              <p>
+                <span className="text-purple-400 font-semibold">Night safety:</span> Priya Sharma and Sunita Devi (female drivers) have routes confirmed to complete before 21:00 per the Night Safety Filter constraints.
+              </p>
+            </div>
+          </AIInsightCard>
 
           {/* Cognitive Load Analysis Panel */}
           <CognitivePanel />

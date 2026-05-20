@@ -53,6 +53,7 @@ import {
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import { runConsolidationOptimize } from "../services/apiClient";
+import { AIInsightCard } from "../components/AIInsightCard";
 
 // ── Leaflet icon fix ────────────────────────────────────────────────────────
 delete (L.Icon.Default.prototype as L.Icon & { _getIconUrl?: unknown })
@@ -974,11 +975,7 @@ export function LoadConsolidation() {
 
       {/* Continuous Learning Insights */}
       {insights.length > 0 && (
-        <div className="bg-eco-card border border-cyan-500/20 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-            <Lightbulb className="w-4 h-4 text-cyan-400" />
-            Continuous Learning — AI Insights from This Run
-          </h3>
+        <AIInsightCard title="Continuous Learning — AI Insights from This Run" confidence={metrics?.avgConfidence}>
           <div className="space-y-3">
             {insights.map((ins: any, i: number) => {
               const iconMap = { pattern: BookOpen, recommendation: Award, learning: Brain };
@@ -1002,7 +999,7 @@ export function LoadConsolidation() {
               );
             })}
           </div>
-        </div>
+        </AIInsightCard>
       )}
 
       {/* Shipment Compatibility Heatmap */}

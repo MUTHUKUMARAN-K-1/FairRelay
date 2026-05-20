@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { KeyboardShortcutsHelp } from "./components/KeyboardShortcutsHelp";
+import { CommandPalette } from "./components/CommandPalette";
 import { useToast } from "./context/ToastContext";
 import { ToastProvider } from "./context/ToastContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -50,6 +51,7 @@ function DashboardLayout() {
   const location = useLocation();
   const { showToast } = useToast();
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -74,7 +76,7 @@ function DashboardLayout() {
           case "4": e.preventDefault(); navigate("/load-consolidation"); break;
           case "5": e.preventDefault(); navigate("/analytics"); break;
           case "6": e.preventDefault(); navigate("/drivers"); break;
-          case "k": case "K": e.preventDefault(); document.getElementById("global-search-input")?.focus(); break;
+          case "k": case "K": e.preventDefault(); setIsPaletteOpen(true); break;
           default: break;
         }
       }
@@ -114,6 +116,11 @@ function DashboardLayout() {
           </Routes>
         </div>
       </main>
+
+      <CommandPalette
+        isOpen={isPaletteOpen}
+        onClose={() => setIsPaletteOpen(false)}
+      />
 
       <KeyboardShortcutsHelp
         isOpen={isShortcutsOpen}

@@ -96,7 +96,10 @@ export function Sidebar() {
       {/* Ctrl+K Search */}
       <div className="px-4 pt-3 pb-2">
         <button
-          onClick={() => document.getElementById('global-search-input')?.focus()}
+          onClick={() => {
+            const event = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true });
+            window.dispatchEvent(event);
+          }}
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/4 border border-white/6 text-gray-500 hover:text-gray-300 hover:border-white/12 hover:bg-white/6 transition-all duration-150 text-xs cursor-pointer"
         >
           <Search className="w-3.5 h-3.5 flex-shrink-0" />

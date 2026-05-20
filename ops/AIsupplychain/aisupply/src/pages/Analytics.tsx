@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, ReferenceLine } from 'recharts';
-import { TrendingUp, TrendingDown, Users, Truck, DollarSign, BarChart2, Award } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, Truck, DollarSign, BarChart2, Award, Leaf, BarChart3, Brain, Shield, Zap } from 'lucide-react';
 
 const volumeData = [
   { name: 'Aug', value: 280, revenue: 120000 },
@@ -118,12 +118,14 @@ export function Analytics() {
         Dashboard <span className="mx-2">&gt;</span> <span className="text-white font-semibold">Analytics</span>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 6-KPI Strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <KpiCard title="Total Revenue" value={12400000} prefix="₹" change="+12.5%" icon={DollarSign} />
         <KpiCard title="Active Shipments" value={stats?.activeShipments ? parseInt(stats.activeShipments) : 1234} change="+8.2%" icon={Truck} />
-        <KpiCard title="AI Dispatches Today" value={stats?.dispatchRuns || 48} change="+14%" icon={BarChart2} />
+        <KpiCard title="AI Dispatches" value={stats?.dispatchRuns || 48} change="+14%" icon={BarChart2} />
         <KpiCard title="Active Drivers" value={stats?.activeDrivers ? parseInt(stats.activeDrivers) : 456} change="+5.3%" icon={Users} />
+        <KpiCard title="Gini Index" value={0.12} change="↓86% vs baseline" negative icon={BarChart3} suffix="" />
+        <KpiCard title="CO₂ Avoided" value={142} change="+18% this month" suffix=" T" icon={Leaf} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -228,14 +230,16 @@ export function Analytics() {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: 'CO₂ Avoided', value: `${co2Avoided} Tons`, sub: 'via route optimization', icon: '🌿', color: 'text-green-400' },
-            { label: 'Income Equality', value: '±12%', sub: 'driver earnings variance (was ±340%)', icon: '⚖️', color: 'text-emerald-400' },
-            { label: 'Gini Reduction', value: '86%', sub: '0.85 → 0.12 this quarter', icon: '📉', color: 'text-orange-400' },
-            { label: 'AI Dispatches', value: `${activeShipments.toLocaleString()}`, sub: 'fair allocations run', icon: '🤖', color: 'text-blue-400' },
+            { label: 'CO₂ Avoided', value: `${co2Avoided} T`, sub: 'via route optimization', Icon: Leaf, color: 'text-green-400', bg: 'bg-green-500/10' },
+            { label: 'Income Equality', value: '±12%', sub: 'earnings variance (was ±340%)', Icon: Shield, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+            { label: 'Gini Reduction', value: '86%', sub: '0.85 → 0.12 this quarter', Icon: BarChart3, color: 'text-orange-400', bg: 'bg-orange-500/10' },
+            { label: 'AI Dispatches', value: `${activeShipments.toLocaleString()}`, sub: 'fair allocations run', Icon: Brain, color: 'text-blue-400', bg: 'bg-blue-500/10' },
           ].map((item, i) => (
             <div key={i} className="bg-black/20 rounded-xl p-4 border border-white/5">
-              <p className="text-2xl mb-1">{item.icon}</p>
-              <p className={`text-2xl font-bold ${item.color}`}>{item.value}</p>
+              <div className={`w-8 h-8 rounded-lg ${item.bg} flex items-center justify-center mb-2`}>
+                <item.Icon className={`w-4 h-4 ${item.color}`} />
+              </div>
+              <p className={`text-2xl font-bold font-data ${item.color}`}>{item.value}</p>
               <p className="text-xs text-gray-400 mt-1">{item.label}</p>
               <p className="text-xs text-gray-600 mt-0.5">{item.sub}</p>
             </div>
