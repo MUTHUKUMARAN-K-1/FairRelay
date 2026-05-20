@@ -15,16 +15,6 @@ import { useToast } from "../context/ToastContext";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext";
 
-// ── Seeded pseudo-random so delivery points are identical on every page load ──
-function seededRng(seed: number) {
-  let s = seed;
-  return () => {
-    s = (s * 1664525 + 1013904223) & 0xffffffff;
-    return (s >>> 0) / 0x100000000;
-  };
-}
-const _rng = seededRng(42);
-
 // --- Mock Data ---
 
 const INITIAL_DRIVERS = [
@@ -37,12 +27,14 @@ const INITIAL_DRIVERS = [
   { id: "G", name: "Driver G", vehicle: "KA07 GH 1006", rating: 4.6, distance: "18 km", status: "UNASSIGNED", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=DriverG" },
 ];
 
-const DELIVERY_POINTS = Array.from({ length: 40 }).map((_, i) => ({
-  id: i,
-  lat: 12.9716 + (_rng() - 0.5) * 0.1,
-  lng: 77.5946 + (_rng() - 0.5) * 0.1,
-  demand: Math.floor(_rng() * 5) + 1,
-}));
+function generateDeliveryPoints() {
+  return Array.from({ length: 40 }).map((_, i) => ({
+    id: i,
+    lat: 12.9716 + (Math.random() - 0.5) * 0.1,
+    lng: 77.5946 + (Math.random() - 0.5) * 0.1,
+    demand: Math.floor(Math.random() * 5) + 1,
+  }));
+}
 
 // --- Custom Icons ---
 
@@ -75,6 +67,7 @@ const virtualHubIcon = new L.DivIcon({
 export function AllocateRoutes() {
     const { user, token, isDemo } = useAuth();
     const { showToast } = useToast();
+    const [deliveryPoints] = useState(generateDeliveryPoints);
     const [isAllocating, setIsAllocating] = useState(false);
     const [allocationStep, setAllocationStep] = useState(1); // 1: PKG, 2: OPT, 3: LOAD, 4: DEP
     const [drivers, setDrivers] = useState(INITIAL_DRIVERS);
@@ -95,7 +88,7 @@ export function AllocateRoutes() {
             const colors = ["#FF6B35", "#3B82F6", "#10B981", "#FBBF24"];
             const hub: [number, number] = [12.9716, 77.5946];
 
-            const sortedByAngle = [...DELIVERY_POINTS].sort((a, b) => {
+            const sortedByAngle = [...deliveryPoints].sort((a, b) => {
                 const angleA = Math.atan2(a.lat - hub[0], a.lng - hub[1]);
                 const angleB = Math.atan2(b.lat - hub[0], b.lng - hub[1]);
                 return angleA - angleB;
@@ -321,7 +314,7 @@ export function AllocateRoutes() {
           ))}
 
           {/* Delivery Points */}
-          {DELIVERY_POINTS.map((pt) => (
+          {deliveryPoints.map((pt) => (
             <Marker key={pt.id} position={[pt.lat, pt.lng]} icon={pointIcon}>
                <Popup className="custom-popup">
                  <div className="text-gray-900 font-bold">Location #{pt.id}</div>

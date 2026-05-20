@@ -113,16 +113,7 @@ export function FairDispatch() {
     }
   };
 
-  const simulateAllocation = async () => {
-    setIsAllocating(true);
-    setAgentEvents([]);
-    setAllocationResult(null);
-    setShowResults(false);
-    setActiveAgent(0);
-    setGiniAnimation(0.85);
-    setCarbonSaved(0);
-
-    // Wellness check
+  const runAgentAnimation = async () => {
     try {
       const result = await checkDriverWellness(DEMO_DRIVERS);
       setWellnessData(result);
@@ -141,8 +132,6 @@ export function FairDispatch() {
 
       const targetGini = 0.85 - (i + 1) * (0.85 - 0.12) / AGENT_NAMES.length;
       setGiniAnimation(Math.max(0.12, targetGini));
-
-      // Carbon builds up as agents run
       setCarbonSaved(prev => prev + Math.random() * 2);
 
       await new Promise(resolve => setTimeout(resolve, 700 + Math.random() * 500));
@@ -152,7 +141,11 @@ export function FairDispatch() {
       ));
     }
 
-    const assignments = DEMO_DRIVERS.map((driver, i) => ({
+    setActiveAgent(AGENT_NAMES.length);
+  };
+
+  const buildDemoResult = (): AllocationResult => ({
+    assignments: DEMO_DRIVERS.map((driver, i) => ({
       driverId: driver.id,
       driverName: driver.name,
       initials: driver.initials,
@@ -162,48 +155,41 @@ export function FairDispatch() {
       wellnessScore: driver.wellnessScore,
       cognitiveLoad: driver.cognitiveLoad,
       cognitiveState: driver.cognitiveState,
-      packages: DEMO_PACKAGES.slice(
-        [0, 2, 4, 6, 7][i] ?? 7,
-        [2, 4, 6, 7, 8][i] ?? 8
-      ).map(p => p.id),
-      packageDetails: DEMO_PACKAGES.slice(
-        [0, 2, 4, 6, 7][i] ?? 7,
-        [2, 4, 6, 7, 8][i] ?? 8
-      ),
+      packages: DEMO_PACKAGES.slice([0, 2, 4, 6, 7][i] ?? 7, [2, 4, 6, 7, 8][i] ?? 8).map(p => p.id),
+      packageDetails: DEMO_PACKAGES.slice([0, 2, 4, 6, 7][i] ?? 7, [2, 4, 6, 7, 8][i] ?? 8),
       routeDistance: [32, 18, 28, 14, 22][i],
       workloadScore: [72, 68, 74, 65, 70][i],
       fairnessContribution: [88, 92, 85, 94, 89][i],
       estimatedEarnings: [160, 90, 140, 70, 110][i],
       carbonEmitted: [3.2, 0, 2.8, 1.8, 3.0][i],
-    }));
-
-    setAllocationResult({
-      assignments,
-      fairnessMetrics: { giniIndex: 0.12, fairnessScore: 92 },
-      summary: {
-        totalPackages: DEMO_PACKAGES.length,
-        totalDrivers: DEMO_DRIVERS.length,
-        avgRouteDistance: 22.8,
-        totalDistance: 114,
-        evUtilization: 20,
-        carbonSavedKg: 14.2,
-        biasedGini: 0.85,
-        fairGini: 0.12,
-      },
-    });
-
-    setActiveAgent(AGENT_NAMES.length);
-    setIsAllocating(false);
-    setIsDemoRun(true);
-    setShowResults(true);
-  };
+    })),
+    fairnessMetrics: { giniIndex: 0.12, fairnessScore: 92 },
+    summary: {
+      totalPackages: DEMO_PACKAGES.length,
+      totalDrivers: DEMO_DRIVERS.length,
+      avgRouteDistance: 22.8,
+      totalDistance: 114,
+      evUtilization: 20,
+      carbonSavedKg: 14.2,
+      biasedGini: 0.85,
+      fairGini: 0.12,
+    },
+  });
 
   const runAllocation = async () => {
+    setIsAllocating(true);
+    setAgentEvents([]);
+    setAllocationResult(null);
+    setShowResults(false);
+    setActiveAgent(0);
+    setGiniAnimation(0.85);
+    setCarbonSaved(0);
+
     if (brainStatus === 'connected') {
-      // Try live AI brain via /dispatch/allocate proxy
-      await simulateAllocation(); // runs agent animation first
-      try {
-        const raw = await runFairAllocation({
+      // Run animation and real brain API in parallel — whoever finishes last wins
+      const [, apiResult] = await Promise.allSettled([
+        runAgentAnimation(),
+        runFairAllocation({
           drivers: DEMO_DRIVERS.map(d => ({
             id: d.id, name: d.name,
             hours_today: d.hoursToday,
@@ -217,13 +203,15 @@ export function FairDispatch() {
             id: `rt_${p.id}`, distance_km: [32, 18, 28, 14, 22, 35, 40, 12][i] || 25,
             difficulty: p.priority === 'HIGH' ? 'medium' : 'easy',
           })),
-        });
-        // Map v1 API response → AllocationResult shape
+        }),
+      ]);
+
+      if (apiResult.status === 'fulfilled') {
+        const raw = apiResult.value;
         const apiAllocs = raw?.data?.allocations || raw?.allocations || [];
         const gini = raw?.meta?.gini_index ?? raw?.gini_index ?? 0.12;
         const grade = raw?.meta?.fairness_grade ?? 'A';
         if (apiAllocs.length > 0) {
-          setIsDemoRun(false);
           const mapped = DEMO_DRIVERS.map((driver, i) => {
             const alloc = apiAllocs.find((a: any) => a.driver === driver.id) || apiAllocs[i] || {};
             return {
@@ -231,7 +219,7 @@ export function FairDispatch() {
               initials: driver.initials, color: driver.color,
               vehicleType: driver.vehicleType, gender: driver.gender,
               wellnessScore: alloc.wellness_score ?? driver.wellnessScore,
-              packages: DEMO_PACKAGES.slice(i * 2, i * 2 + (i === 0 ? 2 : 2)).map(p => p.id),
+              packages: DEMO_PACKAGES.slice(i * 2, i * 2 + 2).map(p => p.id),
               packageDetails: DEMO_PACKAGES.slice(i * 2, i * 2 + 2),
               routeDistance: parseFloat(alloc.carbon_kg || '0') / 0.21 || [32, 18, 28, 14, 22][i],
               workloadScore: [72, 68, 74, 65, 70][i],
@@ -251,13 +239,23 @@ export function FairDispatch() {
               biasedGini: 0.85, fairGini: gini,
             },
           });
+          setIsDemoRun(false);
+          setIsAllocating(false);
+          setShowResults(true);
+          return;
         }
-      } catch {
-        // simulateAllocation already set results — keep them
       }
+      // Brain offline or returned empty — show demo with explicit label
+      setAllocationResult(buildDemoResult());
+      setIsDemoRun(true);
     } else {
-      await simulateAllocation();
+      await runAgentAnimation();
+      setAllocationResult(buildDemoResult());
+      setIsDemoRun(true);
     }
+
+    setIsAllocating(false);
+    setShowResults(true);
   };
 
   const exportResult = () => {
