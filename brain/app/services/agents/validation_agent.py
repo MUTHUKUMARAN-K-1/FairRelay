@@ -15,12 +15,9 @@ import math
 from datetime import datetime
 from typing import Any, Dict, List, Tuple
 
-from app.services.agents.cargo_compat import is_incompatible as _is_incompatible  # noqa: F401
+from app.services.agents.cargo_compat import is_incompatible as _is_incompatible
 
 logger = logging.getLogger("fairrelay.agent.validation")
-
-# Backward-compat alias (used only inside this module)
-_is_incompatible = _is_incompatible  # noqa: F811
 
 
 class ValidationAgent:
