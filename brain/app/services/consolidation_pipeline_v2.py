@@ -81,10 +81,13 @@ def run_consolidation_pipeline_v2(
     metrics = _compute_metrics(scored_groups, bins, valid_s, valid_t,
                                 packing_results, opt_meta)
 
-    # ── Agent 6: Scenario Simulation (optional, runs if no custom scenario) ──
+    # ── Agent 6: Scenario Simulation (optional) ──
+    # Skipped when _skipScenarioAgent=True (set by /consolidate and /consolidate/sync)
+    # to avoid running 3 full sub-pipelines on every consolidation request.
+    # Only /consolidate/simulate explicitly runs ScenarioAgent.
     scenario_results = []
     scenario_rec = ""
-    if not options.get("scenarioName"):
+    if not options.get("scenarioName") and not options.get("_skipScenarioAgent"):
         try:
             scenario_agent = ScenarioAgent()
             scenario_results, scenario_rec, sc_log = scenario_agent.run(

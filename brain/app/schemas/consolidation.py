@@ -275,14 +275,23 @@ class LearningInsight(BaseModel):
 
 
 class ScenarioResultOutput(BaseModel):
-    """Result of a single scenario in simulation."""
+    """Result of a single scenario in simulation.
+
+    All fields returned by ScenarioAgent._run_scenario() are declared here
+    so Pydantic does not silently drop them on serialization (PR #2 P3 fix).
+    """
     name: str
+    description: str = ""
     groups: List[ConsolidatedGroup] = Field(default_factory=list)
+    groupCount: int = 0
     metrics: ConsolidationMetrics = Field(default_factory=ConsolidationMetrics)
     insights: List[LearningInsight] = Field(default_factory=list)
     agentSteps: List[Dict[str, Any]] = Field(default_factory=list)
     recommended: bool = False
     score: float = 0
+    method: str = ""        # e.g. "cpsat_optimal", "genetic_algorithm"
+    failed: bool = False    # True when the scenario errored — must never be dropped silently
+    error: str = ""         # Error message when failed=True
 
 
 class FeedbackInput(BaseModel):

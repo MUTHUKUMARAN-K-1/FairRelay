@@ -7,13 +7,15 @@ Endpoints:
   POST /consolidate/simulate  — Multi-scenario comparison (accepts SimulationRequest)
   GET  /consolidate/health    — Engine health check
 
-Changelog (PR #1 fixes):
-  - Issue #2:  ScenarioAgent skipped from main pipeline; only runs on /simulate.
-  - Issue #5:  /simulate restored to accept SimulationRequest (with scenarios field).
-  - Issue #6:  Empty shipments/trucks now returns HTTP 400, not HTTP 200.
-  - Issue #9:  .dict() replaced with .model_dump() (Pydantic v2).
-  - Issue #10: response_model declared on all endpoints.
-  - Issue #11: ObjectiveWeights sum validated at request time.
+Changelog:
+  PR #1 — Issue #2:  ScenarioAgent skipped from main pipeline; only runs on /simulate.
+  PR #1 — Issue #5:  /simulate restored to accept SimulationRequest (with scenarios field).
+  PR #1 — Issue #6:  Empty shipments/trucks now returns HTTP 400, not HTTP 200.
+  PR #1 — Issue #9:  .dict() replaced with .model_dump() (Pydantic v2).
+  PR #1 — Issue #10: response_model declared on all endpoints.
+  PR #1 — Issue #11: ObjectiveWeights sum validated by Pydantic model_validator on schema.
+  PR #2 — P2: Removed redundant _validate_weights() (schema validator fires first).
+  PR #2 — P3: detail=str(e) replaced with generic safe message in all 500 handlers.
 """
 
 import logging
@@ -41,20 +43,6 @@ logger = logging.getLogger("fairrelay.api.consolidation")
 router = APIRouter(prefix="/consolidate", tags=["Load Consolidation V2"])
 
 
-def _validate_weights(request: ConsolidationRequest) -> None:
-    """Issue #11: Reject requests whose objective weights sum is far from 1.0."""
-    w = request.options.objectiveWeights
-    total = w.cost + w.emissions + w.utilization + w.service
-    if not (0.8 <= total <= 1.2):
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"objectiveWeights must sum to ~1.0 "
-                f"(got cost={w.cost}+emissions={w.emissions}+"
-                f"utilization={w.utilization}+service={w.service}={total:.2f})"
-            ),
-        )
-
 
 def _check_not_empty(shipments, trucks) -> None:
     """Issue #6: Return HTTP 400 for empty arrays instead of HTTP 200."""
@@ -81,8 +69,6 @@ async def consolidate(request: ConsolidationRequest):
 
     Returns consolidated groups, metrics, insights, load plans, and explanations.
     """
-    _validate_weights(request)
-
     # Issue #9: use model_dump() instead of deprecated .dict()
     shipments = [s.model_dump() for s in request.shipments]
     trucks = [t.model_dump() for t in request.trucks]
@@ -112,7 +98,7 @@ async def consolidate(request: ConsolidationRequest):
         raise
     except Exception as e:
         logger.error(f"[Consolidation] Pipeline error: {e}\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal consolidation error")
 
 
 @router.post(
@@ -122,8 +108,6 @@ async def consolidate(request: ConsolidationRequest):
 )
 async def consolidate_sync(request: ConsolidationRequest):
     """Run the consolidation pipeline synchronously (no LangGraph)."""
-    _validate_weights(request)
-
     shipments = [s.model_dump() for s in request.shipments]
     trucks = [t.model_dump() for t in request.trucks]
     options = request.options.model_dump()
@@ -139,7 +123,7 @@ async def consolidate_sync(request: ConsolidationRequest):
         raise
     except Exception as e:
         logger.error(f"[Consolidation/sync] Error: {e}\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal consolidation error")
 
 
 @router.post(
@@ -198,8 +182,8 @@ async def simulate_scenarios(request: SimulationRequest):  # Issue #5: restored 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"[Consolidation/simulate] Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"[Consolidation/simulate] Error: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail="Internal simulation error")
 
 
 @router.get("/health", summary="Engine Health Check")
