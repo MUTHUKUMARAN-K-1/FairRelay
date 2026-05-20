@@ -17,49 +17,16 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
 from app.services.clustering import haversine_distance
+from app.services.agents.cargo_compat import (
+    INCOMPATIBLE_PAIRS,
+    CARGO_COMPAT,
+    cargo_compatibility as _cargo_compatibility,
+)
 
 logger = logging.getLogger("fairrelay.agent.compatibility")
 
-# Cargo compatibility scores (1.0 = fully compatible, 0.0 = incompatible)
-CARGO_COMPAT = {
-    ("GENERAL", "GENERAL"): 1.0,
-    ("GENERAL", "TEXTILES"): 0.9,
-    ("GENERAL", "ELECTRONICS"): 0.7,
-    ("GENERAL", "AUTOMOTIVE"): 0.6,
-    ("FRAGILE", "FRAGILE"): 0.8,
-    ("FRAGILE", "ELECTRONICS"): 0.7,
-    ("PERISHABLE", "PERISHABLE"): 0.9,
-    ("PERISHABLE", "PHARMACEUTICALS"): 0.7,
-    ("HAZARDOUS", "HAZARDOUS"): 0.6,
-    ("ELECTRONICS", "ELECTRONICS"): 0.9,
-    ("PHARMACEUTICALS", "PHARMACEUTICALS"): 0.9,
-    ("TEXTILES", "TEXTILES"): 1.0,
-    ("AUTOMOTIVE", "AUTOMOTIVE"): 0.8,
-    ("HEAVY_MACHINERY", "HEAVY_MACHINERY"): 0.7,
-    ("LIQUID", "LIQUID"): 0.8,
-}
-
-# Known incompatible pairs
-INCOMPATIBLE_PAIRS = {
-    ("HAZARDOUS", "PERISHABLE"),
-    ("HAZARDOUS", "PHARMACEUTICALS"),
-    ("HAZARDOUS", "FRAGILE"),
-    ("HAZARDOUS", "ELECTRONICS"),
-    ("LIQUID", "ELECTRONICS"),
-    ("PERISHABLE", "HEAVY_MACHINERY"),
-    ("FRAGILE", "HEAVY_MACHINERY"),
-}
-
-
-def _cargo_compatibility(a: str, b: str) -> float:
-    """Get cargo compatibility score between two types."""
-    if a == b:
-        return 1.0
-    key = (a, b)
-    rev_key = (b, a)
-    if key in INCOMPATIBLE_PAIRS or rev_key in INCOMPATIBLE_PAIRS:
-        return 0.0
-    return CARGO_COMPAT.get(key, CARGO_COMPAT.get(rev_key, 0.5))
+# Re-export for backward compatibility with ClusteringAgent and OptimizationAgent
+_cargo_compatibility = _cargo_compatibility  # noqa: F811 (alias kept intentionally)
 
 
 class CompatibilityAgent:
@@ -102,15 +69,17 @@ class CompatibilityAgent:
         use_gnn = opts.get("enableGNN", True)
 
         n = len(shipments)
+        # method stays heuristic until GNN inference is actually wired up.
+        # gnn_available signals the model *could* be loaded, not that it was used.
         method = "heuristic_multi_factor"
-
-        # Try GNN first, fall back to heuristic
         gnn_available = False
+
         if use_gnn:
             try:
-                from app.services.agents.gnn_model import GNNCompatibilityModel
+                from app.services.agents.gnn_model import GNNCompatibilityModel  # noqa: F401
                 gnn_available = True
-                method = "gnn_enhanced"
+                # method intentionally left as heuristic_multi_factor until
+                # GNN inference path is wired up (see Issue #3).
             except ImportError:
                 logger.info(f"[{self.name}] PyTorch/PyG not available, using heuristic fallback")
 

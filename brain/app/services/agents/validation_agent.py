@@ -15,20 +15,12 @@ import math
 from datetime import datetime
 from typing import Any, Dict, List, Tuple
 
+from app.services.agents.cargo_compat import is_incompatible as _is_incompatible  # noqa: F401
+
 logger = logging.getLogger("fairrelay.agent.validation")
 
-# Cargo compatibility matrix — which cargo types CANNOT share a truck
-INCOMPATIBLE_CARGO = {
-    ("HAZARDOUS", "PERISHABLE"),
-    ("HAZARDOUS", "PHARMACEUTICALS"),
-    ("HAZARDOUS", "FRAGILE"),
-    ("LIQUID", "ELECTRONICS"),
-    ("PERISHABLE", "HEAVY_MACHINERY"),
-}
-
-
-def _is_incompatible(a: str, b: str) -> bool:
-    return (a, b) in INCOMPATIBLE_CARGO or (b, a) in INCOMPATIBLE_CARGO
+# Backward-compat alias (used only inside this module)
+_is_incompatible = _is_incompatible  # noqa: F811
 
 
 class ValidationAgent:

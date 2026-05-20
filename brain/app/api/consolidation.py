@@ -4,18 +4,29 @@ API Router for the 8-Agent AI Load Consolidation Engine.
 Endpoints:
   POST /consolidate           — Run full 8-agent pipeline
   POST /consolidate/sync      — Synchronous runner (no LangGraph)
-  POST /consolidate/simulate  — Multi-scenario comparison
+  POST /consolidate/simulate  — Multi-scenario comparison (accepts SimulationRequest)
   GET  /consolidate/health    — Engine health check
+
+Changelog (PR #1 fixes):
+  - Issue #2:  ScenarioAgent skipped from main pipeline; only runs on /simulate.
+  - Issue #5:  /simulate restored to accept SimulationRequest (with scenarios field).
+  - Issue #6:  Empty shipments/trucks now returns HTTP 400, not HTTP 200.
+  - Issue #9:  .dict() replaced with .model_dump() (Pydantic v2).
+  - Issue #10: response_model declared on all endpoints.
+  - Issue #11: ObjectiveWeights sum validated at request time.
 """
 
 import logging
 import traceback
-from typing import Optional
+from typing import List
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 
 from app.schemas.consolidation import (
-    ConsolidationRequest, ConsolidationResult, SimulationRequest,
+    ConsolidationRequest,
+    ConsolidationResult,
+    SimulationRequest,
+    SimulationResult,
 )
 from app.services.consolidation_pipeline_v2 import (
     run_consolidation_pipeline_v2,
@@ -30,89 +41,159 @@ logger = logging.getLogger("fairrelay.api.consolidation")
 router = APIRouter(prefix="/consolidate", tags=["Load Consolidation V2"])
 
 
-@router.post("", summary="Run 8-Agent Consolidation Pipeline")
+def _validate_weights(request: ConsolidationRequest) -> None:
+    """Issue #11: Reject requests whose objective weights sum is far from 1.0."""
+    w = request.options.objectiveWeights
+    total = w.cost + w.emissions + w.utilization + w.service
+    if not (0.8 <= total <= 1.2):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"objectiveWeights must sum to ~1.0 "
+                f"(got cost={w.cost}+emissions={w.emissions}+"
+                f"utilization={w.utilization}+service={w.service}={total:.2f})"
+            ),
+        )
+
+
+def _check_not_empty(shipments, trucks) -> None:
+    """Issue #6: Return HTTP 400 for empty arrays instead of HTTP 200."""
+    if not shipments:
+        raise HTTPException(status_code=400, detail="shipments array must not be empty")
+    if not trucks:
+        raise HTTPException(status_code=400, detail="trucks array must not be empty")
+
+
+@router.post(
+    "",
+    summary="Run 8-Agent Consolidation Pipeline",
+    response_model=ConsolidationResult,  # Issue #10
+)
 async def consolidate(request: ConsolidationRequest):
     """
     Run the full 8-agent AI Load Consolidation Pipeline.
 
     Pipeline: Validation → Compatibility → Clustering → Optimization →
-              3D Packing → Scenario → Explainability → Feedback
+              3D Packing → Explainability → Feedback
+
+    Note: Scenario simulation is NOT run here (Issue #2 — prevents 4× computation
+    per request). Use POST /consolidate/simulate for scenario comparison.
 
     Returns consolidated groups, metrics, insights, load plans, and explanations.
     """
-    try:
-        shipments = [s.dict() for s in request.shipments]
-        trucks = [t.dict() for t in request.trucks]
-        options = request.options.dict()
+    _validate_weights(request)
 
+    # Issue #9: use model_dump() instead of deprecated .dict()
+    shipments = [s.model_dump() for s in request.shipments]
+    trucks = [t.model_dump() for t in request.trucks]
+    options = request.options.model_dump()
+
+    _check_not_empty(shipments, trucks)  # Issue #6
+
+    try:
         logger.info(
             f"[Consolidation] Starting 8-agent pipeline: "
             f"{len(shipments)} shipments, {len(trucks)} trucks"
         )
 
+        # Issue #2: disable ScenarioAgent inside the main pipeline
+        options["_skipScenarioAgent"] = True
+
         # Try async LangGraph, fall back to sync
         try:
-            result = await invoke_consolidation_workflow_v2(
-                shipments, trucks, options
-            )
+            result = await invoke_consolidation_workflow_v2(shipments, trucks, options)
         except Exception as e:
             logger.warning(f"LangGraph invocation failed, using sync: {e}")
             result = run_consolidation_pipeline_v2(shipments, trucks, options)
 
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"[Consolidation] Pipeline error: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/sync", summary="Synchronous 8-Agent Pipeline")
+@router.post(
+    "/sync",
+    summary="Synchronous 8-Agent Pipeline",
+    response_model=ConsolidationResult,  # Issue #10
+)
 async def consolidate_sync(request: ConsolidationRequest):
     """Run the consolidation pipeline synchronously (no LangGraph)."""
-    try:
-        shipments = [s.dict() for s in request.shipments]
-        trucks = [t.dict() for t in request.trucks]
-        options = request.options.dict()
+    _validate_weights(request)
 
+    shipments = [s.model_dump() for s in request.shipments]
+    trucks = [t.model_dump() for t in request.trucks]
+    options = request.options.model_dump()
+
+    _check_not_empty(shipments, trucks)
+
+    try:
+        options["_skipScenarioAgent"] = True  # Issue #2
         result = run_consolidation_pipeline_v2(shipments, trucks, options)
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"[Consolidation/sync] Error: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/simulate", summary="Multi-Scenario Simulation")
-async def simulate_scenarios(request: ConsolidationRequest):
+@router.post(
+    "/simulate",
+    summary="Multi-Scenario Simulation",
+    response_model=SimulationResult,  # Issue #10
+)
+async def simulate_scenarios(request: SimulationRequest):  # Issue #5: restored SimulationRequest
     """
-    Run Tight / Balanced / Aggressive scenarios and compare.
+    Run Tight / Balanced / Aggressive scenarios (or custom scenarios) and compare.
+
+    Accepts SimulationRequest which includes an optional `scenarios` list.
+    If scenarios is empty, the three default strategies are used.
+
     Returns scenario results with recommendation.
     """
     try:
-        shipments = [s.dict() for s in request.shipments]
-        trucks = [t.dict() for t in request.trucks]
-        options = request.options.dict()
+        # Issue #9: model_dump()
+        shipments = [s.model_dump() for s in request.shipments]
+        trucks = [t.model_dump() for t in request.trucks]
+
+        _check_not_empty(shipments, trucks)  # Issue #6
+
+        base_options: dict = {}
 
         # Validate first
         validator = ValidationAgent()
         valid_s, valid_t, val_report, _ = validator.run(shipments, trucks)
 
-        if not valid_s or not valid_t:
-            raise HTTPException(status_code=400, detail="No valid shipments/trucks")
+        if not valid_s:
+            raise HTTPException(status_code=400, detail="No valid shipments after validation")
+        if not valid_t:
+            raise HTTPException(status_code=400, detail="No valid trucks after validation")
 
         # Build compatibility
         compat_agent = CompatibilityAgent()
-        compat_graph, _, _ = compat_agent.run(valid_s, options)
+        compat_graph, _, _ = compat_agent.run(valid_s, base_options)
 
-        # Run scenarios
+        # Issue #5: pass caller-supplied scenarios through to ScenarioAgent
+        # Issue #2: ScenarioAgent here runs with a 3-second solver cap
+        scenario_options = {**base_options, "solverTimeLimitSeconds": 3.0}
+        custom_scenarios = [sc.model_dump() for sc in request.scenarios] if request.scenarios else []
+
         scenario_agent = ScenarioAgent()
-        results, rec, _ = scenario_agent.run(valid_s, valid_t, compat_graph, options=options)
+        results, rec, _ = scenario_agent.run(
+            valid_s, valid_t, compat_graph,
+            options=scenario_options,
+            custom_scenarios=custom_scenarios,
+        )
 
-        return {
-            "scenarios": results,
-            "recommendation": rec,
-            "validationReport": val_report,
-        }
+        return SimulationResult(
+            scenarios=results,
+            recommendation=rec,
+        )
 
     except HTTPException:
         raise
@@ -129,12 +210,17 @@ async def engine_health():
     return {
         "status": "healthy",
         "engine": "8-Agent AI Load Consolidation",
-        "version": "2.0.0",
+        "version": "2.0.1",
         "agents": [
             "ValidationAgent", "CompatibilityAgent", "ClusteringAgent",
-            "OptimizationAgent", "PackingAgent", "ScenarioAgent",
+            "OptimizationAgent", "PackingAgent",
             "ExplainabilityAgent", "FeedbackAgent",
         ],
+        "simulation_agents": ["ScenarioAgent"],
         "gnn_available": is_gnn_available(),
         "solver_backend": "or-tools",
+        "notes": {
+            "ScenarioAgent": "Only runs on POST /consolidate/simulate, not on main pipeline",
+            "gnn_available": "Indicates model can be loaded; inference uses heuristic until wired up",
+        },
     }
