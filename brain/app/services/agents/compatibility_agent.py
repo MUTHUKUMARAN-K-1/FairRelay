@@ -25,9 +25,6 @@ from app.services.agents.cargo_compat import (
 
 logger = logging.getLogger("fairrelay.agent.compatibility")
 
-# Re-export for backward compatibility with ClusteringAgent and OptimizationAgent
-_cargo_compatibility = _cargo_compatibility  # noqa: F811 (alias kept intentionally)
-
 
 class CompatibilityAgent:
     """

@@ -112,12 +112,12 @@ class OptimizationAgent:
                 model.Add(x[i, j] <= y[j])
 
         # Cargo compatibility: incompatible shipments can't share truck
-        from app.services.agents.compatibility_agent import _cargo_compatibility
+        from app.services.agents.cargo_compat import cargo_compatibility as _cargo_compat
         for i in range(n_items):
             for k in range(i + 1, n_items):
                 ct1 = all_s[i].get("cargoType", "GENERAL")
                 ct2 = all_s[k].get("cargoType", "GENERAL")
-                if _cargo_compatibility(ct1, ct2) == 0:
+                if _cargo_compat(ct1, ct2) == 0:
                     for j in range(n_trucks):
                         model.Add(x[i, j] + x[k, j] <= 1)
 

@@ -16,9 +16,10 @@ INCOMPATIBLE_PAIRS: set = {
     ("FRAGILE", "HEAVY_MACHINERY"),
 }
 
-# Cargo compatibility scores (1.0 = fully compatible, 0.0 = hard-blocked)
+# Cargo compatibility scores (1.0 = fully compatible, 0.0 = hard-blocked).
+# Note: same-type pairs (a == b) return 1.0 in cargo_compatibility() before
+# this table is consulted, so any (X, X) entry here is unreachable dead code.
 CARGO_COMPAT: dict = {
-    ("GENERAL", "GENERAL"): 1.0,
     ("GENERAL", "TEXTILES"): 0.9,
     ("GENERAL", "ELECTRONICS"): 0.7,
     ("GENERAL", "AUTOMOTIVE"): 0.6,
@@ -26,7 +27,6 @@ CARGO_COMPAT: dict = {
     ("FRAGILE", "ELECTRONICS"): 0.7,
     ("PERISHABLE", "PERISHABLE"): 0.9,
     ("PERISHABLE", "PHARMACEUTICALS"): 0.7,
-    ("HAZARDOUS", "HAZARDOUS"): 0.6,
     ("ELECTRONICS", "ELECTRONICS"): 0.9,
     ("PHARMACEUTICALS", "PHARMACEUTICALS"): 0.9,
     ("TEXTILES", "TEXTILES"): 1.0,
