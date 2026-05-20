@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Brain, Zap, Users, Package, TrendingUp, Play, Loader2, CheckCircle, AlertTriangle, Shield, Activity, BarChart3, Download, Moon, Leaf, Code2, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { Brain, Zap, Users, Package, TrendingUp, Play, Loader2, CheckCircle, AlertTriangle, Shield, Activity, BarChart3, Download, Moon, Leaf, Code2, ChevronDown, ChevronUp, AlertCircle, FlaskConical } from 'lucide-react';
 import { runFairAllocation, getDispatchHealth, checkDriverWellness } from '../services/apiClient';
 import { CognitivePanel } from '../components/CognitivePanel';
 import { AIInsightCard } from '../components/AIInsightCard';
@@ -82,6 +82,7 @@ export function FairDispatch() {
   const [agentEvents, setAgentEvents] = useState<AgentEvent[]>([]);
   const [allocationResult, setAllocationResult] = useState<AllocationResult | null>(null);
   const [brainStatus, setBrainStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
+  const [isDemoRun, setIsDemoRun] = useState(false);
   const [wellnessData, setWellnessData] = useState<any>(null);
   const [activeAgent, setActiveAgent] = useState<number>(-1);
   const [giniAnimation, setGiniAnimation] = useState<number>(0.85);
@@ -193,6 +194,7 @@ export function FairDispatch() {
 
     setActiveAgent(AGENT_NAMES.length);
     setIsAllocating(false);
+    setIsDemoRun(true);
     setShowResults(true);
   };
 
@@ -221,6 +223,7 @@ export function FairDispatch() {
         const gini = raw?.meta?.gini_index ?? raw?.gini_index ?? 0.12;
         const grade = raw?.meta?.fairness_grade ?? 'A';
         if (apiAllocs.length > 0) {
+          setIsDemoRun(false);
           const mapped = DEMO_DRIVERS.map((driver, i) => {
             const alloc = apiAllocs.find((a: any) => a.driver === driver.id) || apiAllocs[i] || {};
             return {
@@ -506,6 +509,18 @@ export function FairDispatch() {
       {/* ── RESULTS ── */}
       {allocationResult && showResults && (
         <div ref={resultRef} className="space-y-6">
+          {/* Demo simulation notice */}
+          {isDemoRun && (
+            <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-500/8 border border-amber-500/20">
+              <FlaskConical className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <span className="text-amber-400 font-semibold text-sm">Demo Simulation</span>
+                <p className="text-gray-400 text-xs mt-0.5">
+                  Results illustrate AI behavior using sample drivers and packages. Connect the live Brain API for real allocations against your fleet data.
+                </p>
+              </div>
+            </div>
+          )}
           {/* Before vs After */}
           <div className="bg-eco-card border border-orange-500/20 rounded-xl p-6">
             <div className="flex items-center justify-between mb-6 flex-wrap gap-3">

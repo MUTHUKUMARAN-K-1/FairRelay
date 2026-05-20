@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Phone, Lock, CheckCircle, AlertCircle, FlaskConical, Brain, Zap, Leaf, BarChart3, Shield, TrendingUp } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth, DEMO_TOKEN } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { sendOTP, verifyOTP } from "../services/apiClient";
 import { useToast } from "../context/ToastContext";
@@ -125,7 +125,7 @@ export function Login() {
   const validatePhone = (value: string) => /^\+91\d{10}$/.test(value);
 
   const handleTestingMode = () => {
-    login("test-token-dev", {
+    login(DEMO_TOKEN, {
       id: "test-001",
       name: "Test Dispatcher",
       phone: "+910000000000",

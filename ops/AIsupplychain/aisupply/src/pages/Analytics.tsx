@@ -59,7 +59,7 @@ function useCountUp(target: number, duration = 1500) {
   return value;
 }
 
-function KpiCard({ title, value, change, negative, icon: Icon, prefix = '', suffix = '' }: any) {
+function KpiCard({ title, value, change, negative, icon: Icon, prefix = '', suffix = '' }: KpiCardProps) {
   const num = useCountUp(typeof value === 'number' ? value : 0);
   return (
     <div className="bg-eco-card rounded-xl p-5 border border-eco-card-border shadow-sm hover:border-eco-brand-orange/30 transition-all">
@@ -83,7 +83,7 @@ function KpiCard({ title, value, change, negative, icon: Icon, prefix = '', suff
   );
 }
 
-const CustomGiniTooltip = ({ active, payload, label }: any) => {
+const CustomGiniTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; payload: { label: string } }>; label?: string }) => {
   if (active && payload?.length) {
     const val = payload[0].value;
     const quality = val < 0.2 ? 'Excellent' : val < 0.4 ? 'Good' : val < 0.6 ? 'Moderate' : 'Poor';
@@ -100,8 +100,27 @@ const CustomGiniTooltip = ({ active, payload, label }: any) => {
 
 import { getDashboardStats } from '../services/apiClient';
 
+interface DashboardStats {
+  activeShipments?: string | number;
+  dispatchRuns?: number;
+  activeDrivers?: string | number;
+  totalRevenue?: number;
+  giniIndex?: number;
+  co2Avoided?: number;
+}
+
+interface KpiCardProps {
+  title: string;
+  value: number | string;
+  change: string;
+  negative?: boolean;
+  icon: React.ElementType;
+  prefix?: string;
+  suffix?: string;
+}
+
 export function Analytics() {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
 
   useEffect(() => {
     getDashboardStats()
@@ -109,7 +128,7 @@ export function Analytics() {
       .catch(() => setStats(null)); // graceful fallback to static values
   }, []);
 
-  const activeShipments = useCountUp(stats?.activeShipments ? parseInt(stats.activeShipments) : 1234);
+  const activeShipments = useCountUp(stats?.activeShipments ? Number(stats.activeShipments) : 1234);
   const co2Avoided = useCountUp(142);
 
   return (
@@ -121,9 +140,9 @@ export function Analytics() {
       {/* 6-KPI Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <KpiCard title="Total Revenue" value={12400000} prefix="₹" change="+12.5%" icon={DollarSign} />
-        <KpiCard title="Active Shipments" value={stats?.activeShipments ? parseInt(stats.activeShipments) : 1234} change="+8.2%" icon={Truck} />
+        <KpiCard title="Active Shipments" value={stats?.activeShipments ? Number(stats.activeShipments) : 1234} change="+8.2%" icon={Truck} />
         <KpiCard title="AI Dispatches" value={stats?.dispatchRuns || 48} change="+14%" icon={BarChart2} />
-        <KpiCard title="Active Drivers" value={stats?.activeDrivers ? parseInt(stats.activeDrivers) : 456} change="+5.3%" icon={Users} />
+        <KpiCard title="Active Drivers" value={stats?.activeDrivers ? Number(stats.activeDrivers) : 456} change="+5.3%" icon={Users} />
         <KpiCard title="Gini Index" value={0.12} change="↓86% vs baseline" negative icon={BarChart3} suffix="" />
         <KpiCard title="CO₂ Avoided" value={142} change="+18% this month" suffix=" T" icon={Leaf} />
       </div>

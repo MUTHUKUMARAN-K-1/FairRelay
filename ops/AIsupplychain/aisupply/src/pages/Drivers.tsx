@@ -18,6 +18,7 @@ export function Drivers() {
     const { showToast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string | null>(null);
+    const [locationTerm, setLocationTerm] = useState('');
     const [driversData, setDriversData] = useState<any[]>([]);
     const [selectedDriver, setSelectedDriver] = useState<any | null>(null);
     const [editingDriver, setEditingDriver] = useState<any | null>(null);
@@ -64,16 +65,19 @@ export function Drivers() {
 
     const filteredDrivers = useMemo(() => {
         return driversData.filter(driver => {
-            const matchesSearch = 
+            const matchesSearch =
                 driver.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 driver.plate?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 driver.loc?.toLowerCase().includes(searchTerm.toLowerCase());
-            
-            const matchesStatus = filterStatus ? driver.status === filterStatus : true;
 
-            return matchesSearch && matchesStatus;
+            const matchesStatus = filterStatus ? driver.status === filterStatus : true;
+            const matchesLocation = locationTerm
+                ? driver.loc?.toLowerCase().includes(locationTerm.toLowerCase())
+                : true;
+
+            return matchesSearch && matchesStatus && matchesLocation;
         });
-    }, [searchTerm, filterStatus, driversData]);
+    }, [searchTerm, filterStatus, locationTerm, driversData]);
 
     const handleActionClick = (driver: any) => {
         setSelectedDriver(driver);
@@ -162,12 +166,16 @@ export function Drivers() {
             >
                <Truck className="w-4 h-4 mr-2" /> In Transit
            </button>
-           <button 
-                onClick={() => showToast('Location Filter', 'Filter by region functionality coming soon', 'info')}
-                className="flex items-center px-4 py-2 bg-eco-secondary border border-eco-card-border rounded-lg text-eco-text-secondary text-sm hover:text-white hover:border-gray-500 transition-colors"
-            >
-               <MapPin className="w-4 h-4 mr-2" /> Location
-           </button>
+           <div className="relative">
+               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+               <input
+                   type="text"
+                   value={locationTerm}
+                   onChange={(e) => setLocationTerm(e.target.value)}
+                   placeholder="Filter by city..."
+                   className="bg-eco-secondary border border-eco-card-border rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-eco-brand-orange transition-colors placeholder:text-gray-600 w-36"
+               />
+           </div>
        </div>
 
        {/* Rows */}
