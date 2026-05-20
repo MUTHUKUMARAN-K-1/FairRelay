@@ -1,129 +1,140 @@
 """
-API endpoints for AI Load Consolidation.
+API Router for the 8-Agent AI Load Consolidation Engine.
 
-POST /consolidate           — Run consolidation (LangGraph multi-agent pipeline)
-POST /consolidate/sync      — Run consolidation (synchronous fallback)
-POST /consolidate/simulate  — Compare multiple scenarios
+Endpoints:
+  POST /consolidate           — Run full 8-agent pipeline
+  POST /consolidate/sync      — Synchronous runner (no LangGraph)
+  POST /consolidate/simulate  — Multi-scenario comparison
+  GET  /consolidate/health    — Engine health check
 """
 
 import logging
-from typing import List
-from uuid import uuid4
+import traceback
+from typing import Optional
 
-logger = logging.getLogger("fairrelay.consolidation")
-
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app.schemas.consolidation import (
-    ConsolidationRequest,
-    SimulationRequest,
-    ConsolidationResult,
+    ConsolidationRequest, ConsolidationResult, SimulationRequest,
 )
-from app.services.consolidation_engine import run_consolidation_pipeline
-from app.services.consolidation_llm import generate_consolidation_insights
+from app.services.consolidation_pipeline_v2 import (
+    run_consolidation_pipeline_v2,
+    invoke_consolidation_workflow_v2,
+)
+from app.services.agents.scenario_agent import ScenarioAgent
+from app.services.agents.compatibility_agent import CompatibilityAgent
+from app.services.agents.validation_agent import ValidationAgent
 
-router = APIRouter(prefix="/consolidate", tags=["Consolidation"])
+logger = logging.getLogger("fairrelay.api.consolidation")
 
-
-async def _enrich_with_llm(result: dict) -> dict:
-    """Prepend real Gemini insights to the consolidation result."""
-    llm_insights, llm_log = await generate_consolidation_insights(
-        result.get("metrics", {}),
-        result.get("groups", []),
-    )
-    if llm_insights:
-        result = dict(result)
-        result["insights"] = llm_insights + result.get("insights", [])
-        if llm_log:
-            result["agentSteps"] = list(result.get("agentSteps", [])) + [llm_log]
-    return result
+router = APIRouter(prefix="/consolidate", tags=["Load Consolidation V2"])
 
 
-@router.post("", response_model=ConsolidationResult)
-async def consolidate(req: ConsolidationRequest):
+@router.post("", summary="Run 8-Agent Consolidation Pipeline")
+async def consolidate(request: ConsolidationRequest):
     """
-    Run AI Load Consolidation through the 5-agent LangGraph pipeline.
+    Run the full 8-agent AI Load Consolidation Pipeline.
 
-    Agents executed in order:
-      1. GeoClusteringAgent — geographic proximity clustering
-      2. TimeWindowAgent — time-window compatibility filtering
-      3. CapacityOptimizationAgent — FFD bin-packing
-      4. ScoringConfidenceAgent — AI confidence + optimization score
-      5. ContinuousLearningAgent — actionable insights
+    Pipeline: Validation → Compatibility → Clustering → Optimization →
+              3D Packing → Scenario → Explainability → Feedback
+
+    Returns consolidated groups, metrics, insights, load plans, and explanations.
     """
-    if not req.shipments:
-        raise HTTPException(400, "shipments array must not be empty")
-    if not req.trucks:
-        raise HTTPException(400, "trucks array must not be empty")
-
-    shipments = [s.model_dump() for s in req.shipments]
-    trucks = [t.model_dump() for t in req.trucks]
-    options = req.options.model_dump()
-
     try:
-        from app.services.consolidation_workflow import invoke_consolidation_workflow
-        result = await invoke_consolidation_workflow(
-            shipments=shipments,
-            trucks=trucks,
-            options=options,
-            thread_id=str(uuid4()),
+        shipments = [s.dict() for s in request.shipments]
+        trucks = [t.dict() for t in request.trucks]
+        options = request.options.dict()
+
+        logger.info(
+            f"[Consolidation] Starting 8-agent pipeline: "
+            f"{len(shipments)} shipments, {len(trucks)} trucks"
         )
+
+        # Try async LangGraph, fall back to sync
+        try:
+            result = await invoke_consolidation_workflow_v2(
+                shipments, trucks, options
+            )
+        except Exception as e:
+            logger.warning(f"LangGraph invocation failed, using sync: {e}")
+            result = run_consolidation_pipeline_v2(shipments, trucks, options)
+
+        return result
+
     except Exception as e:
-        # Fallback to synchronous pipeline if LangGraph fails
-        logger.error(f"LangGraph consolidation failed ({e}), using sync pipeline")
-        result = run_consolidation_pipeline(shipments, trucks, options)
-
-    result = await _enrich_with_llm(result)
-    return ConsolidationResult(**result)
+        logger.error(f"[Consolidation] Pipeline error: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/sync", response_model=ConsolidationResult)
-async def consolidate_sync(req: ConsolidationRequest):
+@router.post("/sync", summary="Synchronous 8-Agent Pipeline")
+async def consolidate_sync(request: ConsolidationRequest):
+    """Run the consolidation pipeline synchronously (no LangGraph)."""
+    try:
+        shipments = [s.dict() for s in request.shipments]
+        trucks = [t.dict() for t in request.trucks]
+        options = request.options.dict()
+
+        result = run_consolidation_pipeline_v2(shipments, trucks, options)
+        return result
+
+    except Exception as e:
+        logger.error(f"[Consolidation/sync] Error: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/simulate", summary="Multi-Scenario Simulation")
+async def simulate_scenarios(request: ConsolidationRequest):
     """
-    Run consolidation using the synchronous multi-agent pipeline (no LangGraph).
-    Useful for environments without LangGraph installed.
+    Run Tight / Balanced / Aggressive scenarios and compare.
+    Returns scenario results with recommendation.
     """
-    if not req.shipments:
-        raise HTTPException(400, "shipments array must not be empty")
-    if not req.trucks:
-        raise HTTPException(400, "trucks array must not be empty")
+    try:
+        shipments = [s.dict() for s in request.shipments]
+        trucks = [t.dict() for t in request.trucks]
+        options = request.options.dict()
 
-    shipments = [s.model_dump() for s in req.shipments]
-    trucks = [t.model_dump() for t in req.trucks]
-    options = req.options.model_dump()
+        # Validate first
+        validator = ValidationAgent()
+        valid_s, valid_t, val_report, _ = validator.run(shipments, trucks)
 
-    result = run_consolidation_pipeline(shipments, trucks, options)
-    result = await _enrich_with_llm(result)
-    return ConsolidationResult(**result)
+        if not valid_s or not valid_t:
+            raise HTTPException(status_code=400, detail="No valid shipments/trucks")
 
+        # Build compatibility
+        compat_agent = CompatibilityAgent()
+        compat_graph, _, _ = compat_agent.run(valid_s, options)
 
-@router.post("/simulate")
-async def simulate_scenarios(req: SimulationRequest):
-    """
-    Compare multiple consolidation strategies side-by-side.
-    Returns results for each scenario and a recommendation.
-    """
-    if not req.shipments or not req.trucks:
-        raise HTTPException(400, "shipments and trucks arrays required")
-    if not req.scenarios:
-        raise HTTPException(400, "at least one scenario required")
+        # Run scenarios
+        scenario_agent = ScenarioAgent()
+        results, rec, _ = scenario_agent.run(valid_s, valid_t, compat_graph, options=options)
 
-    shipments = [s.model_dump() for s in req.shipments]
-    trucks = [t.model_dump() for t in req.trucks]
-
-    results = []
-    for sc in req.scenarios:
-        opts = {
-            "maxGroupRadiusKm": sc.maxGroupRadiusKm,
-            "timeWindowToleranceMinutes": sc.timeWindowToleranceMinutes,
-            "scenarioName": sc.name,
+        return {
+            "scenarios": results,
+            "recommendation": rec,
+            "validationReport": val_report,
         }
-        r = run_consolidation_pipeline(shipments, trucks, opts)
-        results.append({"name": sc.name, **r})
 
-    best = max(results, key=lambda r: r["metrics"]["optimizationScore"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[Consolidation/simulate] Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/health", summary="Engine Health Check")
+async def engine_health():
+    """Return health status of the 8-agent consolidation engine."""
+    from app.services.agents.gnn_model import is_gnn_available
 
     return {
-        "scenarios": results,
-        "recommendation": best["name"],
+        "status": "healthy",
+        "engine": "8-Agent AI Load Consolidation",
+        "version": "2.0.0",
+        "agents": [
+            "ValidationAgent", "CompatibilityAgent", "ClusteringAgent",
+            "OptimizationAgent", "PackingAgent", "ScenarioAgent",
+            "ExplainabilityAgent", "FeedbackAgent",
+        ],
+        "gnn_available": is_gnn_available(),
+        "solver_backend": "or-tools",
     }
