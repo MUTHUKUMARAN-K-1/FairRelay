@@ -117,9 +117,9 @@ POST https://fairrelay-brain-gdm1.onrender.com/lorri/carbon/estimate
 // Send
 {
   "shipments": [
-    { "id": "SH-001", "lane": "Mumbai → Pune",    "dist_km": 149, "weight_kg": 800,  "max_kg": 2000 },
-    { "id": "SH-002", "lane": "Delhi → Jaipur",   "dist_km": 281, "weight_kg": 1500, "max_kg": 5000 },
-    { "id": "SH-003", "lane": "Hyd → Kurnool",    "dist_km": 215, "weight_kg": 1800, "max_kg": 3000 }
+    { "id": "SH-001", "lane": "Mumbai → Pune",  "dist_km": 149, "weight_kg": 800,  "max_kg": 2000, "truck": "Tata Ace Gold"   },
+    { "id": "SH-002", "lane": "Delhi → Jaipur", "dist_km": 281, "weight_kg": 1500, "max_kg": 5000, "truck": "Eicher Pro 2049" },
+    { "id": "SH-003", "lane": "Hyd → Kurnool",  "dist_km": 215, "weight_kg": 1800, "max_kg": 3000, "truck": "BharatBenz"      }
   ]
 }
 ```
@@ -129,21 +129,25 @@ POST https://fairrelay-brain-gdm1.onrender.com/lorri/carbon/estimate
 {
   "data": {
     "summary": {
-      "totalCo2Kg": 57.3, "savedCo2Kg": 78.2, "savingsPct": 57.7,
-      "highRiskCount": 0,  "carbonCreditUSD": 1.17
+      "totalCo2Kg": 57.3,  "savedCo2Kg": 78.2, "savingsPct": 57.7,
+      "highRiskCount": 0,   "carbonCreditUSD": 1.17, "carbonCreditINR": 98,
+      "fuelSavedLiters": 47.3, "fuelSavedINR": 4352,
+      "treesEquivalent": 3, "fleetEfficiencyPct": 57.7,
+      "emissionIntensity": 84.2
     },
     "highEmissionLanes": [
       { "lane": "Hyd → Kurnool", "co2_kg": 27.1, "risk": "MEDIUM" }
     ],
     "reductionOpportunities": [
-      { "lane": "Delhi → Jaipur", "type": "consolidation", "saving_kg": 16.5, "effort": "Low" }
+      { "lane": "Delhi → Jaipur", "type": "consolidation", "saving_kg": 16.5, "effort": "Low", "saving_inr": 1530 },
+      { "lane": "Hyd → Kurnool",  "type": "ev_route",      "saving_kg": 15.1, "effort": "Medium", "saving_inr": 890 }
     ],
-    "aiInsight": "Fleet emitting 57.3 kg CO₂ — consolidating the Delhi-Jaipur corridor (30% loaded) delivers the fastest reduction with zero operational disruption."
+    "aiInsight": "Fleet emitting 57.3 kg CO₂ — 78.2 kg (57.7%) saved vs full-load baseline. Fuel savings: ₹4,352 (47 L). Emission intensity: 84.2 g/tonne-km. Consolidating the Delhi-Jaipur corridor delivers fastest reduction with zero disruption."
   }
 }
 ```
 
-**5-step agent pipeline. Per-shipment CO₂ model + high-emission lane flags + Gemini AI sustainability insight.**
+**5-step agent pipeline. Truck-specific CO₂ model (0.12–0.26 kg/km) + fuel ₹ savings + intermodal/EV opportunities + Gemini AI sustainability insight.**
 
 ---
 
@@ -529,7 +533,7 @@ risk_level:
 
 ### 2.4 `POST /lorri/carbon/estimate`
 
-**Carbon Intelligence Agent.** No auth required. Runs a 5-step server-side pipeline to estimate per-shipment CO₂ emissions, identify high-emission lanes, generate reduction opportunities, and produce a Gemini 2.5 Flash AI insight.
+**Carbon Intelligence Agent v2.0.** No auth required. Runs a 5-step server-side pipeline with truck-specific IPCC AR6/CPCB emission factors, per-shipment CO₂ and fuel ₹ savings, five opportunity types (consolidation, scheduling, intermodal, EV route, vehicle upgrade), and a Gemini 2.5 Flash AI insight.
 
 **Request:**
 ```bash
@@ -576,7 +580,7 @@ curl -X POST https://fairrelay-brain-gdm1.onrender.com/lorri/carbon/estimate \
 | `shipments[].dist_km` | float | Yes | Route distance in km. **Range: 0–50,000 km.** |
 | `shipments[].weight_kg` | float | Yes | Cargo weight kg. **Range: 0–100,000 kg.** |
 | `shipments[].max_kg` | float | Yes | Vehicle max capacity kg. **Range: 0–100,000 kg.** |
-| `shipments[].truck` | string | No | Truck model label |
+| `shipments[].truck` | string | No | Truck model label — used to select truck-specific emission factor. Falls back to 0.21 kg/km if omitted or unrecognised. |
 | `date` | string | No | ISO date for the report |
 
 **Response `200 OK`:**
@@ -594,9 +598,13 @@ curl -X POST https://fairrelay-brain-gdm1.onrender.com/lorri/carbon/estimate \
         "max_kg": 2000,
         "truck": "Tata Ace Gold",
         "load_factor_pct": 40,
-        "co2_kg": 12.5,
-        "co2_baseline_kg": 31.3,
-        "co2_saved_kg": 18.8,
+        "emission_factor": 0.12,
+        "co2_kg": 7.2,
+        "co2_baseline_kg": 17.9,
+        "co2_saved_kg": 10.7,
+        "co2_intensity_g_tkm": 60.4,
+        "fuel_saved_liters": 8.1,
+        "fuel_saved_inr": 745,
         "risk": "LOW"
       },
       {
@@ -607,9 +615,13 @@ curl -X POST https://fairrelay-brain-gdm1.onrender.com/lorri/carbon/estimate \
         "max_kg": 5000,
         "truck": "Eicher Pro 2049",
         "load_factor_pct": 30,
+        "emission_factor": 0.21,
         "co2_kg": 17.7,
         "co2_baseline_kg": 59.0,
         "co2_saved_kg": 41.3,
+        "co2_intensity_g_tkm": 41.9,
+        "fuel_saved_liters": 29.8,
+        "fuel_saved_inr": 2742,
         "risk": "LOW"
       },
       {
@@ -620,62 +632,101 @@ curl -X POST https://fairrelay-brain-gdm1.onrender.com/lorri/carbon/estimate \
         "max_kg": 3000,
         "truck": "BharatBenz",
         "load_factor_pct": 60,
-        "co2_kg": 27.1,
-        "co2_baseline_kg": 45.2,
-        "co2_saved_kg": 18.1,
+        "emission_factor": 0.26,
+        "co2_kg": 33.5,
+        "co2_baseline_kg": 55.9,
+        "co2_saved_kg": 22.4,
+        "co2_intensity_g_tkm": 103.4,
+        "fuel_saved_liters": 9.5,
+        "fuel_saved_inr": 874,
         "risk": "MEDIUM"
       }
     ],
     "highEmissionLanes": [
-      { "lane": "Hyderabad → Kurnool", "co2_kg": 27.1, "risk": "MEDIUM" },
+      { "lane": "Hyderabad → Kurnool", "co2_kg": 33.5, "risk": "MEDIUM" },
       { "lane": "Delhi NCR → Jaipur",  "co2_kg": 17.7, "risk": "LOW"    },
-      { "lane": "Mumbai → Pune",        "co2_kg": 12.5, "risk": "LOW"    }
+      { "lane": "Mumbai → Pune",        "co2_kg": 7.2,  "risk": "LOW"    }
     ],
     "reductionOpportunities": [
       {
         "lane": "Delhi NCR → Jaipur",
         "type": "consolidation",
-        "finding": "Load factor 30% — consolidation can save 16.5 kg CO₂/run.",
-        "saving_kg": 16.5,
+        "finding": "Load factor 30% — consolidation can save 29.5 kg CO₂/run.",
+        "saving_kg": 29.5,
+        "saving_inr": 2742,
         "effort": "Low"
+      },
+      {
+        "lane": "Mumbai → Pune",
+        "type": "ev_route",
+        "finding": "Urban short-haul 149 km — EV switch saves 76% CO₂ vs diesel on this corridor.",
+        "saving_kg": 5.5,
+        "saving_inr": 565,
+        "effort": "Medium"
       },
       {
         "lane": "Hyderabad → Kurnool",
         "type": "vehicle_upgrade",
-        "finding": "Upgrade to BS6 Euro-6 (emission factor 0.21→0.16 kg/km) saves 6.5 kg CO₂ on highest-emission corridor.",
+        "finding": "Upgrade to BS6 Euro-6 (0.26→0.21 kg/km) saves 6.5 kg CO₂ on highest-emission corridor.",
         "saving_kg": 6.5,
+        "saving_inr": 598,
         "effort": "Medium"
       },
       {
         "lane": "Hyderabad → Kurnool",
         "type": "scheduling",
-        "finding": "Night-window dispatch (22:00–05:00) reduces fuel burn ~12% → saves 3.3 kg CO₂.",
-        "saving_kg": 3.3,
+        "finding": "Night-window dispatch (22:00–05:00) reduces fuel burn ~12% → saves 4.0 kg CO₂.",
+        "saving_kg": 4.0,
+        "saving_inr": 368,
         "effort": "Low"
       }
     ],
     "summary": {
-      "totalCo2Kg": 57.3,
-      "baselineCo2Kg": 135.5,
-      "savedCo2Kg": 78.2,
-      "savingsPct": 57.7,
+      "totalCo2Kg": 58.4,
+      "baselineCo2Kg": 132.8,
+      "savedCo2Kg": 74.4,
+      "savingsPct": 56.0,
       "highRiskCount": 0,
-      "carbonCreditUSD": 1.17,
+      "carbonCreditUSD": 1.12,
+      "carbonCreditINR": 94,
+      "fuelSavedLiters": 47.4,
+      "fuelSavedINR": 4361,
+      "treesEquivalent": 3,
+      "fleetEfficiencyPct": 56.0,
+      "emissionIntensity": 76.8,
       "shipmentCount": 3
     },
-    "aiInsight": "Fleet is emitting 57.3 kg CO₂ across 3 active shipments — 78.2 kg (57.7%) saved vs full-load baseline. Consolidating the Delhi-Jaipur corridor (currently 30% loaded) and switching to night-window departures on Hyderabad-Kurnool will deliver the fastest CO₂ reduction with minimal operational disruption."
+    "aiInsight": "Fleet emitting 58.4 kg CO₂ across 3 shipments — 74.4 kg (56%) saved vs full-load baseline. Fuel savings: ₹4,361 (47 L). Emission intensity: 76.8 g/tonne-km (target: <80). Consolidating Delhi-Jaipur corridor and night-window departures deliver fastest ROI with zero operational disruption."
   },
   "meta": {
-    "model": "CO₂ = dist_km × (weight/capacity) × 0.21 kg/km",
-    "emissionFactor": 0.21,
+    "model": "CO₂ = dist_km × (weight/capacity) × truck_ef — truck-specific IPCC AR6/CPCB factors",
     "latency_ms": 1843,
-    "agent": "CarbonIntelligenceAgent/1.0"
+    "agent": "CarbonIntelligenceAgent/2.0"
   }
 }
 ```
 
-**Emission model:** `CO₂ (kg) = distance_km × (weight_kg / max_kg) × 0.21`  
-Source: IPCC AR6 India road freight emission factor.
+**Emission model:** `CO₂ (kg) = distance_km × (weight_kg / max_kg) × truck_emission_factor`
+
+**Truck emission factors (IPCC AR6 + CPCB India):**
+
+| Truck type | Example models | EF (kg CO₂/km) |
+|------------|---------------|-----------------|
+| Mini LCV   | Tata Ace Gold, Mahindra Bolero Pickup | 0.12 |
+| Medium     | Eicher Pro 2049, Tata Ultra T.7 | 0.21 |
+| Heavy      | BharatBenz, Ashok Leyland 2518 | 0.26 |
+| EV         | Any electric model | 0.05 |
+| Default    | Unknown / not provided | 0.21 |
+
+**Opportunity types:**
+
+| `type` | Trigger | CO₂ saving |
+|--------|---------|-----------|
+| `consolidation` | Load factor < 75% | Proportional to empty capacity |
+| `scheduling` | HIGH-risk night window | ~12% fuel reduction |
+| `intermodal` | Distance > 500 km | ~70% CO₂ vs road |
+| `ev_route` | Urban < 150 km | ~76% CO₂ vs diesel |
+| `vehicle_upgrade` | Top emitter, BS6 eligible | ~19% CO₂ reduction |
 
 **Risk thresholds:**
 
@@ -1344,9 +1395,11 @@ Returns the current state of the route continuous learning system — the adapti
 
 ### 3.4 Carbon Intelligence Agent
 
-See [Section 2.4](#24-post-lorricarbonestimat) for the LoRRI-facing endpoint.
+See [Section 2.4](#24-post-lorricarbonestimat) for the full LoRRI-facing endpoint documentation.
 
 The same endpoint is available without auth at: `POST /lorri/carbon/estimate`
+
+**v2.0 additions:** truck-specific EFs, `fuel_saved_inr`, `co2_intensity_g_tkm` per shipment; `fuelSavedINR`, `treesEquivalent`, `emissionIntensity`, `carbonCreditINR` in summary; `saving_inr` on opportunities; `intermodal` and `ev_route` opportunity types.
 
 ---
 
@@ -2064,4 +2117,4 @@ Rate limit exceeded returns `429` with header `Retry-After: 60`.
 
 ---
 
-*Generated: 2026-05-16 · FairRelay v1.0 · Brain: `fairrelay-brain-gdm1.onrender.com` · Backend: `fairrelay-backend.onrender.com`*
+*Generated: 2026-05-20 · FairRelay v1.0 · Brain: `fairrelay-brain-gdm1.onrender.com` · Backend: `fairrelay-backend.onrender.com` · CarbonIntelligenceAgent/2.0*
